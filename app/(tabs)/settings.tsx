@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { seedDemoData } from '@/lib/demo';
 import { formatDateTime } from '@/lib/date';
 import { repo } from '@/lib/storage';
 import { useAuth } from '@/store/auth';
@@ -44,22 +43,6 @@ export default function SettingsScreen() {
   const supportsBiometrics = useLock((s) => s.supportsBiometrics);
 
   const [bioAvailable, setBioAvailable] = useState(false);
-  const [seeding, setSeeding] = useState(false);
-
-  const loadDemo = () => {
-    if (entries.length) {
-      Alert.alert(
-        'Denník nie je prázdny',
-        'Ukážkové dáta sa dajú načítať len do prázdneho denníka. Najprv zmaž existujúce zápisky.'
-      );
-      return;
-    }
-    setSeeding(true);
-    void seedDemoData()
-      .then((count) => Alert.alert('Hotovo', `Načítalo sa ${count} ukážkových zápiskov.`))
-      .catch(() => Alert.alert('Nepodarilo sa', 'Ukážkové dáta sa nepodarilo načítať.'))
-      .finally(() => setSeeding(false));
-  };
 
   useEffect(() => {
     void supportsBiometrics().then(setBioAvailable);
@@ -251,19 +234,6 @@ export default function SettingsScreen() {
           subtitle={user?.email ?? 'Neprihlásený'}
           onPress={confirmLogout}
           right={<Text style={styles.soon}>odhlásiť</Text>}
-        />
-        <Row
-          icon="sparkles-outline"
-          title="Načítať ukážkové dáta"
-          subtitle="26 zápiskov z tvojho Day One exportu, aby bolo vidno vizuál"
-          onPress={loadDemo}
-          right={
-            seeding ? (
-              <ActivityIndicator size="small" color={colors.textFaint} />
-            ) : (
-              <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
-            )
-          }
         />
         <Row
           icon="trash-outline"

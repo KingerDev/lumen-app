@@ -107,11 +107,10 @@ Server stojí a je otestovaný, appka s ním zatiaľ nekomunikuje:
 3. **Prihlásenie v appke** — obrazovka na `POST /api/login` a uloženie tokenu do
    `expo-secure-store`.
 4. **Ostrý import** — spustiť `lumen:import-dayone` na serveri s celým exportom
-   (s médiami), potom zmazať `lib/demo.ts` aj `assets/demo/`.
+   (s médiami). Postup je v README projektu `lumen-api`.
 
-## Ukážkové dáta
+## Šablóny
 
-`lib/demo.ts` obsahuje 26 reálnych zápiskov z exportu (rovnaké dátumy, miesta aj
-odpovede) a 26 fotiek zmenšených na 900 px v `assets/demo/`. Načítajú sa cez
-**Nastavenia → Načítať ukážkové dáta** a len do prázdneho denníka.
-Celý tento súbor aj priečinok `assets/demo/` sa zmaže, keď pribudne ostrý import.
+Appka si šablóny nevytvára — vlastní ich server a prídu prvým synchronizovaním.
+Keby si ich seedovala aj lokálne, tá istá sada otázok by existovala pod dvomi
+rôznymi id a po prihlásení by si ju videl dvakrát.

@@ -1,68 +1,11 @@
-import { nowISO } from '@/lib/date';
-import { slugId, uid } from '@/lib/id';
-import type { EntrySection, Template, TemplateField } from '@/types';
+import type { EntrySection, Template } from '@/types';
 
 /**
- * Template seeds.
+ * Helpers for entries written under a template.
  *
- * "Daily Self" is not invented — it is the exact prompt set from the Day One
- * export (939 entries, 929 of them under this template), so imported entries
- * line up with newly written ones field for field.
+ * The templates themselves live on the server and arrive through sync — the app
+ * never invents them, so a prompt set can never exist twice with two ids.
  */
-
-function field(label: string, multiline = true, placeholder?: string): TemplateField {
-  return { id: slugId(label), label, multiline, placeholder };
-}
-
-export function seedTemplates(): Template[] {
-  const now = nowISO();
-  const base = { createdAt: now, updatedAt: now, builtIn: true as const };
-
-  return [
-    {
-      id: uid(),
-      name: 'Daily Self',
-      description: 'Denný prehľad dňa — miesta, ľudia, jedlo, momenty',
-      icon: 'sunny-outline',
-      fields: [
-        field('Kde som bol...', true, 'Doma, v práci, na výlete…'),
-        field('Čo som robil...'),
-        field('Koho som videl...', false),
-        field('Čo som dosiahol...'),
-        field('Čo som jedol...', false),
-        field('Príbehový moment dňa...'),
-        field('Jedna vec, ktorú som sa dnes naučil...'),
-        field('Čo ma dnes potešilo, alebo komu som ja dnes pomohol?'),
-      ],
-      ...base,
-    },
-    {
-      id: uid(),
-      name: 'Cesta',
-      description: 'Pre dni mimo domova',
-      icon: 'airplane-outline',
-      fields: [
-        field('Kam som sa dostal...', false),
-        field('Čo som videl...'),
-        field('Čo ma prekvapilo...'),
-        field('Čo si chcem zapamätať...'),
-      ],
-      ...base,
-    },
-    {
-      id: uid(),
-      name: 'Vďačnosť',
-      description: 'Krátky večerný zápis',
-      icon: 'heart-outline',
-      fields: [
-        field('Za čo som dnes vďačný...'),
-        field('Čo mi dnes urobilo radosť...'),
-        field('Čo chcem zajtra spraviť inak...'),
-      ],
-      ...base,
-    },
-  ];
-}
 
 /** Empty sections for a fresh entry written under `template`. */
 export function sectionsFor(template: Template): EntrySection[] {
