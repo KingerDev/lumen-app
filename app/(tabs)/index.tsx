@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EntryCard } from '@/components/EntryCard';
@@ -132,7 +132,6 @@ export default function JournalScreen() {
         accessibilityLabel="Nový zápisok"
         style={({ pressed }) => [
           styles.fab,
-          { bottom: TAB_BAR_HEIGHT + spacing.sm },
           pressed && styles.fabPressed,
         ]}
       >
@@ -141,9 +140,6 @@ export default function JournalScreen() {
     </View>
   );
 }
-
-/** Matches the tab bar in app/(tabs)/_layout.tsx, so the FAB clears it exactly. */
-const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 88 : 64;
 
 /** Slovak 1 / 2–4 / 5+ noun forms. */
 function plural(count: number, one: string, few: string, many: string): string {
@@ -188,6 +184,9 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: spacing.lg,
+    // The tab scene is already laid out above the tab bar, so this is measured
+    // from the bar's top edge — no need to add its height.
+    bottom: spacing.lg,
     width: 58,
     height: 58,
     borderRadius: radius.pill,
