@@ -304,18 +304,40 @@ export async function runSync(context: SyncContext): Promise<SyncResult> {
 
   /* 3 — pull remote changes ----------------------------------------------- */
 
-  const since = await repo.loadSyncCursor();
+  const PAGE = 500;
+  /** Safety valve: 50 pages is 25 000 records, far past any real journal. */
+  const MAX_PAGES = 50;
 
-  const remote = await request<{
-    serverTime: string;
-    entries: any[];
-    templates: any[];
-    hasMore: boolean;
-  }>('sync', { query: { since: since ?? undefined, limit: 500 } });
+  const since = await repo.loadSyncCursor();
+  const remoteEntries: any[] = [];
+  const remoteTemplates: any[] = [];
+  let cursor: string | undefined;
+  let serverTime: string | null = null;
+
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const batch = await request<{
+      serverTime: string;
+      entries: any[];
+      templates: any[];
+      hasMore: boolean;
+      nextCursor: string | null;
+    }>('sync', {
+      query: { since: since ?? undefined, cursor, limit: PAGE },
+    });
+
+    remoteEntries.push(...batch.entries);
+    // Templates come whole on every page, so only the first one is new.
+    if (page === 0) remoteTemplates.push(...batch.templates);
+
+    serverTime = batch.serverTime;
+
+    if (!batch.hasMore || !batch.nextCursor) break;
+    cursor = batch.nextCursor;
+  }
 
   const byId = new Map(entries.map((entry) => [entry.id, entry]));
 
-  remote.entries.forEach((payload) => {
+  remoteEntries.forEach((payload) => {
     const local = byId.get(payload.id);
 
     // A local edit made after the server's copy wins and will be pushed next
@@ -333,7 +355,7 @@ export async function runSync(context: SyncContext): Promise<SyncResult> {
 
   const templatesById = new Map(templates.map((template) => [template.id, template]));
 
-  remote.templates.forEach((payload) => {
+  remoteTemplates.forEach((payload) => {
     const local = templatesById.get(payload.id);
     if (local?.dirty && local.updatedAt > payload.updatedAt) return;
 
@@ -348,9 +370,9 @@ export async function runSync(context: SyncContext): Promise<SyncResult> {
 
   await context.commit([...byId.values()], [...templatesById.values()]);
 
-  // Only advance the cursor once everything above succeeded — a crash mid-way
-  // must re-deliver the same window rather than skip it.
-  await repo.saveSyncCursor(remote.serverTime);
+  // Only advance the cursor once every page landed and the merge succeeded —
+  // a crash mid-sweep must re-deliver the same window rather than skip it.
+  if (serverTime) await repo.saveSyncCursor(serverTime);
 
   return result;
 }
