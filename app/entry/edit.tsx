@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconButton } from '@/components/ui';
 import { formatLongDate, formatTime, toLocalISO } from '@/lib/date';
 import { captureCurrentLocation, formatLocation } from '@/lib/location';
-import { capturePhoto, mediaSource, pickMedia } from '@/lib/media';
+import { capturePhoto, MediaPickError, mediaSource, pickMedia } from '@/lib/media';
 import { renderSections } from '@/lib/templates';
 import { useEditor } from '@/store/editor';
 import { useJournal } from '@/store/journal';
@@ -154,6 +154,19 @@ export default function EditEntryScreen() {
         if (shot) addMedia([shot]);
       } else {
         addMedia(await pickMedia());
+      }
+    } catch (err) {
+      // A photo iOS cannot hand over must not take the whole editor down —
+      // attach whatever did come through and say what was skipped.
+      if (err instanceof MediaPickError) {
+        addMedia(err.picked);
+        Alert.alert(
+          'Niektoré fotky sa nenačítali',
+          `${err.message} Ak sú uložené v iCloude, otvor ich najprv vo Fotkách, aby sa stiahli.`
+        );
+      } else {
+        console.warn('[lumen] attach failed', err);
+        Alert.alert('Nepodarilo sa pridať médiá', 'Skús to prosím znova.');
       }
     } finally {
       setBusy(false);

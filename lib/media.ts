@@ -45,7 +45,17 @@ async function persistAsset(asset: ImagePicker.ImagePickerAsset): Promise<Media>
   };
 }
 
-/** Opens the system picker. Returns [] when the user cancels or denies access. */
+/**
+ * Opens the system picker. Returns [] when the user cancels or denies access.
+ *
+ * Two iOS settings here are load-bearing:
+ *
+ *  - `Current` representation, plus no `quality`, means the file is taken as it
+ *    already is. Asking for a JPEG makes iOS transcode, and for some assets that
+ *    fails outright with "Cannot load representation of type public.jpeg".
+ *  - `shouldDownloadFromNetwork` fetches photos that live in iCloud and are not
+ *    on the device — otherwise picking an older photo fails the same way.
+ */
 export async function pickMedia(limit = 10): Promise<Media[]> {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!permission.granted) return [];
@@ -54,12 +64,46 @@ export async function pickMedia(limit = 10): Promise<Media[]> {
     mediaTypes: ['images', 'videos'],
     allowsMultipleSelection: true,
     selectionLimit: limit,
-    quality: 0.9,
     exif: false,
+    preferredAssetRepresentationMode:
+      ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
+    shouldDownloadFromNetwork: true,
   });
   if (result.canceled) return [];
 
-  return Promise.all(result.assets.map(persistAsset));
+  // One unreadable asset must not lose the rest of the selection.
+  const settled = await Promise.allSettled(result.assets.map(persistAsset));
+  const picked = settled
+    .filter((entry): entry is PromiseFulfilledResult<Media> => entry.status === 'fulfilled')
+    .map((entry) => entry.value);
+
+  const failed = settled.length - picked.length;
+  if (failed > 0) {
+    settled.forEach((entry) => {
+      if (entry.status === 'rejected') console.warn('[lumen] could not read asset', entry.reason);
+    });
+    throw new MediaPickError(picked, failed);
+  }
+
+  return picked;
+}
+
+/**
+ * Some assets were unreadable.
+ *
+ * Carries the ones that did work, so the caller can attach those and still tell
+ * the user what was skipped.
+ */
+export class MediaPickError extends Error {
+  constructor(
+    readonly picked: Media[],
+    readonly failedCount: number
+  ) {
+    super(
+      `${failedCount} ${failedCount === 1 ? 'fotku sa nepodarilo' : 'fotiek sa nepodarilo'} načítať.`
+    );
+    this.name = 'MediaPickError';
+  }
 }
 
 /** Shoots a photo with the camera and stores it. Returns null on cancel/deny. */
