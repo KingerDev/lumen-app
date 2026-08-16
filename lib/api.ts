@@ -117,24 +117,3 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   return payload as T;
 }
-
-/** Uploads raw bytes to a presigned R2 URL. Bypasses `request` — no auth header, no JSON. */
-export async function uploadToSignedUrl(
-  url: string,
-  fileUri: string,
-  headers: Record<string, string> = {}
-): Promise<void> {
-  // React Native's fetch streams a file:// uri when handed this shape, so the
-  // whole file never has to be read into JS memory as base64.
-  const body = {
-    uri: fileUri,
-    type: headers['Content-Type'] ?? 'application/octet-stream',
-    name: 'upload',
-  } as unknown as Blob;
-
-  const response = await fetch(url, { method: 'PUT', headers, body });
-
-  if (!response.ok) {
-    throw new ApiError(`Nahrávanie do R2 zlyhalo (${response.status}).`, response.status);
-  }
-}

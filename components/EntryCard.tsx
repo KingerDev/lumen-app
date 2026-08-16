@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { dayOfMonth, formatTime, formatWeekdayShort } from '@/lib/date';
+import { formatRailDate, formatTime, formatWeekdayShort } from '@/lib/date';
 import { mediaSource } from '@/lib/media';
 import { formatLocation } from '@/lib/location';
 import { previewText, previewTitle } from '@/lib/templates';
@@ -20,6 +20,7 @@ function EntryCardBase({ entry, onPress }: { entry: Entry; onPress: () => void }
   const place = formatLocation(entry.location);
   const cover = entry.media.find((m) => m.kind === 'photo') ?? entry.media[0];
   const extra = entry.media.length - (cover ? 1 : 0);
+  const rail = formatRailDate(entry.date);
 
   return (
     <Pressable
@@ -29,8 +30,8 @@ function EntryCardBase({ entry, onPress }: { entry: Entry; onPress: () => void }
       accessibilityLabel={`Zápisok ${title ?? preview.slice(0, 40)}`}
     >
       <View style={styles.rail}>
-        <Text style={styles.day}>{dayOfMonth(entry.date)}</Text>
-        <Text style={styles.weekday}>{formatWeekdayShort(entry.date)}</Text>
+        <Text style={styles.day}>{rail.day}</Text>
+        <Text style={styles.month}>{rail.month}</Text>
       </View>
 
       <View style={styles.body}>
@@ -40,7 +41,9 @@ function EntryCardBase({ entry, onPress }: { entry: Entry; onPress: () => void }
               {title}
             </Text>
           ) : null}
-          <Text style={styles.time}>{formatTime(entry.date)}</Text>
+          <Text style={styles.time}>
+            {formatWeekdayShort(entry.date)} · {formatTime(entry.date)}
+          </Text>
         </View>
 
         <Text style={styles.preview} numberOfLines={title ? 2 : 3}>
@@ -103,9 +106,11 @@ const styles = StyleSheet.create({
   },
   rowPressed: { backgroundColor: colors.surfacePressed },
 
-  rail: { width: 34, alignItems: 'center', paddingTop: 2 },
-  day: { fontSize: 22, fontWeight: '700', color: colors.text, letterSpacing: -0.6 },
-  weekday: { ...type.caption, color: colors.textFaint },
+  // Centred against the card, not pinned to the top — the rail reads as the
+  // row's anchor rather than a floating label.
+  rail: { width: 42, alignItems: 'center', alignSelf: 'center' },
+  day: { fontSize: 24, fontWeight: '700', color: colors.text, letterSpacing: -0.6 },
+  month: { ...type.caption, color: colors.textFaint, marginTop: -1 },
 
   body: { flex: 1, gap: 3 },
   headline: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },

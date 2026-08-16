@@ -99,3 +99,28 @@ export function nowISO(): ISODate {
 export function dayOfMonth(value: ISODate | Date): number {
   return toDate(value).getDate();
 }
+
+const MONTHS_SK_SHORT = [
+  'jan', 'feb', 'mar', 'apr', 'máj', 'jún',
+  'júl', 'aug', 'sep', 'okt', 'nov', 'dec',
+];
+
+/**
+ * The compact date for a list row's left rail.
+ *
+ * The row has to stand on its own — the list has no day headers — so the month
+ * is always shown, and the year joins it whenever the entry is not from the
+ * current one. Without that, scrolling a three-year journal loses all sense of
+ * where you are.
+ */
+export function formatRailDate(value: ISODate | Date): { day: number; month: string } {
+  const d = toDate(value);
+  const month = MONTHS_SK_SHORT[d.getMonth()];
+  const year = d.getFullYear();
+  const currentYear = new Date().getFullYear();
+
+  return {
+    day: d.getDate(),
+    month: year === currentYear ? month : `${month} ${String(year).slice(2)}`,
+  };
+}

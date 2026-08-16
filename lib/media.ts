@@ -1,4 +1,4 @@
-import { Directory, File, Paths } from 'expo-file-system';
+import { Directory, File, Paths, UploadType } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 
 import { uid } from '@/lib/id';
@@ -94,4 +94,45 @@ export function mediaSource(media: Media): { uri: string } | null {
   if (media.uri) return { uri: media.uri };
   if (media.remoteUrl) return { uri: media.remoteUrl };
   return null;
+}
+
+/**
+ * The native module needs a flat Record<string, string>.
+ *
+ * The signer hands back some values as arrays, and `Host` must not be sent by
+ * hand at all — the network stack sets it, and a duplicate breaks the signature.
+ */
+function normaliseHeaders(headers: Record<string, unknown>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(headers)
+      .filter(([name]) => name.toLowerCase() !== 'host')
+      .map(([name, value]) => [name, Array.isArray(value) ? value.join(', ') : String(value)])
+  );
+}
+
+/**
+ * PUTs a local file to a presigned R2 URL.
+ *
+ * Uses the native upload task rather than fetch: React Native's fetch has no
+ * BodyInit that accepts a file:// path for a raw (non-multipart) body, and
+ * reading a 30 MB video into JS just to send it would be wasteful even if it did.
+ */
+export async function uploadFileToSignedUrl(
+  fileUri: string,
+  url: string,
+  headers: Record<string, unknown>
+): Promise<void> {
+  const file = new File(fileUri);
+
+  const task = file.createUploadTask(url, {
+    httpMethod: 'PUT',
+    uploadType: UploadType.BINARY_CONTENT,
+    headers: normaliseHeaders(headers),
+  });
+
+  const result = await task.uploadAsync();
+
+  if (!result || result.status < 200 || result.status >= 300) {
+    throw new Error(`R2 odmietlo upload (HTTP ${result?.status ?? 0}).`);
+  }
 }

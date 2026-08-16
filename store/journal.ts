@@ -96,8 +96,15 @@ export const useJournal = create<JournalState>((set, get) => {
       // the server already has, and the user would end up with each one twice.
       const allTemplates = storedTemplates ?? [];
 
-      const splitEntries = splitTombstones(entries);
-      const splitTemplates = splitTombstones(allTemplates);
+      // Records written before sync existed have no `dirty` field at all. A
+      // pull always sets it to false explicitly, so `undefined` reliably means
+      // "the server has never seen this" — mark it for push rather than
+      // leaving it stranded locally forever.
+      const markLegacy = <T extends { dirty?: boolean }>(items: T[]): T[] =>
+        items.map((item) => (item.dirty === undefined ? { ...item, dirty: true } : item));
+
+      const splitEntries = splitTombstones(markLegacy(entries));
+      const splitTemplates = splitTombstones(markLegacy(allTemplates));
 
       set({
         entries: sortEntries(splitEntries.live),

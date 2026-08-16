@@ -1,7 +1,8 @@
 import { File } from 'expo-file-system';
 
-import { ApiError, request, uploadToSignedUrl } from '@/lib/api';
+import { ApiError, request } from '@/lib/api';
 import { nowISO } from '@/lib/date';
+import { uploadFileToSignedUrl } from '@/lib/media';
 import { repo } from '@/lib/storage';
 import type { Entry, Media, Template } from '@/types';
 
@@ -98,7 +99,7 @@ function toWireTemplate(template: Template): Record<string, unknown> {
 function fromWireEntry(payload: any, existing?: Entry): Entry {
   const localMedia = new Map((existing?.media ?? []).map((m) => [m.id, m]));
 
-  const media: Media[] = (payload.media ?? [])
+  const remote: Media[] = (payload.media ?? [])
     .filter((m: any) => !m.deletedAt)
     .map((m: any): Media => {
       const local = localMedia.get(m.id);
@@ -119,6 +120,16 @@ function fromWireEntry(payload: any, existing?: Entry): Entry {
         sizeBytes: m.sizeBytes ?? undefined,
       };
     });
+
+  // Media added on this device but not yet uploaded is not in the server's
+  // answer. Taking the remote list verbatim would delete those photos — the
+  // very ones sitting in the upload queue.
+  const remoteIds = new Set(remote.map((m) => m.id));
+  const pending = (existing?.media ?? []).filter(
+    (m) => !m.remoteKey && !remoteIds.has(m.id)
+  );
+
+  const media = [...remote, ...pending];
 
   return {
     id: payload.id,
@@ -189,12 +200,12 @@ async function uploadMedia(entryId: string, media: Media): Promise<string | null
 
   const mime = mimeOf(media);
 
-  const presigned = await request<{ url: string; key: string; headers: Record<string, string> }>(
+  const presigned = await request<{ url: string; key: string; headers: Record<string, unknown> }>(
     'media/presign',
     { method: 'POST', body: { mime } }
   );
 
-  await uploadToSignedUrl(presigned.url, media.uri, {
+  await uploadFileToSignedUrl(media.uri, presigned.url, {
     ...presigned.headers,
     'Content-Type': mime,
   });
@@ -269,6 +280,10 @@ export async function runSync(context: SyncContext): Promise<SyncResult> {
 
   for (const entry of entries) {
     if (entry.deletedAt) continue;
+
+    // Still dirty means step 1 did not manage to push it, so the server has no
+    // row to attach media to — trying would just 404 on every future sync.
+    if (entry.dirty) continue;
 
     for (const media of entry.media) {
       if (media.remoteKey) continue;
