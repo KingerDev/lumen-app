@@ -6,7 +6,10 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EntryCard } from '@/components/EntryCard';
+import { StreakBadge } from '@/components/StreakBadge';
 import { Button, EmptyState } from '@/components/ui';
+import { plural } from '@/lib/plural';
+import { computeStreak } from '@/lib/streak';
 import { useJournal } from '@/store/journal';
 import { colors, radius, shadow, spacing, type } from '@/theme';
 import type { Entry } from '@/types';
@@ -41,6 +44,10 @@ export default function JournalScreen() {
       ? [...filtered].sort((a, b) => a.date.localeCompare(b.date))
       : filtered;
   }, [entries, query, sortOrder]);
+
+  // Whole-journal figure, so it is deliberately not derived from `rows` — a
+  // search narrowing the list must not make the streak look shorter.
+  const streak = useMemo(() => computeStreak(entries), [entries]);
 
   const hasEntries = entries.length > 0;
 
@@ -77,14 +84,17 @@ export default function JournalScreen() {
                 {entries.length} {plural(entries.length, 'zápisok', 'zápisky', 'zápiskov')}
               </Text>
             </View>
-            <Pressable
-              onPress={() => setSearching(true)}
-              hitSlop={8}
-              style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}
-              accessibilityLabel="Hľadať"
-            >
-              <Ionicons name="search" size={20} color={colors.text} />
-            </Pressable>
+            <View style={styles.headerActions}>
+              <StreakBadge days={streak.current} writtenToday={streak.writtenToday} />
+              <Pressable
+                onPress={() => setSearching(true)}
+                hitSlop={8}
+                style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}
+                accessibilityLabel="Hľadať"
+              >
+                <Ionicons name="search" size={20} color={colors.text} />
+              </Pressable>
+            </View>
           </View>
         )}
       </View>
@@ -141,18 +151,12 @@ export default function JournalScreen() {
   );
 }
 
-/** Slovak 1 / 2–4 / 5+ noun forms. */
-function plural(count: number, one: string, few: string, many: string): string {
-  if (count === 1) return one;
-  if (count >= 2 && count <= 4) return few;
-  return many;
-}
-
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
 
   header: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md, paddingTop: spacing.sm },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   title: { ...type.display, color: colors.text },
   subtitle: { ...type.caption, color: colors.textFaint, marginTop: 2 },
   headerButton: {

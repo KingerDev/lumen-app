@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,7 +14,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { formatDateTime } from '@/lib/date';
+import { plural } from '@/lib/plural';
 import { repo } from '@/lib/storage';
+import { computeStreak, type Streak } from '@/lib/streak';
 import { useAuth } from '@/store/auth';
 import { useJournal } from '@/store/journal';
 import { useLock } from '@/store/lock';
@@ -70,6 +72,8 @@ export default function SettingsScreen() {
       ]
     );
   };
+
+  const streak = useMemo(() => computeStreak(entries), [entries]);
 
   const mediaCount = entries.reduce((sum, entry) => sum + entry.media.length, 0);
   const locatedCount = entries.filter((entry) => entry.location).length;
@@ -181,6 +185,16 @@ export default function SettingsScreen() {
 
       <Group label="Zápisky">
         <Row
+          icon="flame-outline"
+          title="Séria"
+          subtitle={streakSubtitle(streak)}
+          right={
+            <Text style={[styles.streakValue, streak.current === 0 && styles.streakValueOff]}>
+              {streak.current}
+            </Text>
+          }
+        />
+        <Row
           icon="navigate-outline"
           title="Automatická poloha"
           subtitle="Pri novom zápisku sa uloží aktuálne miesto"
@@ -247,6 +261,26 @@ export default function SettingsScreen() {
       <Text style={styles.version}>Lumen 1.0.0</Text>
     </ScrollView>
   );
+}
+
+/**
+ * "12 dní v rade · rekord 34" — the one line under "Séria".
+ *
+ * The record is dropped while the current run *is* the record; repeating the
+ * same number twice on one line reads like a bug.
+ */
+function streakSubtitle(streak: Streak): string {
+  const days = (count: number) => `${count} ${plural(count, 'deň', 'dni', 'dní')}`;
+
+  if (streak.current > 0) {
+    return streak.current >= streak.longest
+      ? `${days(streak.current)} v rade — zatiaľ najviac`
+      : `${days(streak.current)} v rade · rekord ${days(streak.longest)}`;
+  }
+
+  if (streak.totalDays === 0) return 'Zatiaľ žiadna — napíš prvý zápisok';
+
+  return `Pretrhnutá · rekord ${days(streak.longest)}`;
 }
 
 /** Cycles the background grace period through sensible values. */
@@ -362,6 +396,9 @@ const styles = StyleSheet.create({
   rowBody: { flex: 1, gap: 1 },
   rowTitle: { ...type.small, color: colors.text },
   rowSubtitle: { ...type.caption, color: colors.textFaint, fontSize: 11 },
+
+  streakValue: { ...type.title, color: colors.accent },
+  streakValueOff: { color: colors.textFaint },
 
   soon: { ...type.caption, color: colors.textFaint },
   version: {
