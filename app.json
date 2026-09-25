@@ -2,6 +2,7 @@
   "expo": {
     "name": "Lumen",
     "slug": "lumen",
+    "owner": "kingerko",
     "version": "1.0.0",
     "scheme": "lumen",
     "orientation": "portrait",
@@ -17,7 +18,8 @@
         "NSPhotoLibraryUsageDescription": "Lumen potrebuje prístup k fotkám, aby si k zápiskom mohol priradiť obrázky.",
         "NSCameraUsageDescription": "Lumen potrebuje prístup ku kamere, aby si mohol odfotiť moment priamo do zápisku.",
         "NSFaceIDUsageDescription": "Odomkni Lumen pomocou Face ID namiesto PIN kódu.",
-        "UIBackgroundModes": []
+        "UIBackgroundModes": [],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -62,7 +64,8 @@
         "expo-image-picker",
         {
           "photosPermission": "Lumen potrebuje prístup k fotkám, aby si k zápiskom mohol priradiť obrázky.",
-          "cameraPermission": "Lumen potrebuje prístup ku kamere, aby si mohol odfotiť moment priamo do zápisku."
+          "cameraPermission": "Lumen potrebuje prístup ku kamere, aby si mohol odfotiť moment priamo do zápisku.",
+          "microphonePermission": false
         }
       ],
       "@react-native-community/datetimepicker",
@@ -71,6 +74,11 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "f9284bb5-9528-4af5-b82a-d047417ae24d"
+      }
     }
   }
 }
