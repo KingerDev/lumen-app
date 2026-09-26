@@ -5,7 +5,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PinDots, PinPad } from '@/components/PinPad';
-import { IconButton } from '@/components/ui';
+import { IconButton, useModalTopInset } from '@/components/ui';
 import { useJournal } from '@/store/journal';
 import { PIN_LENGTH, useLock } from '@/store/lock';
 import { colors, spacing, type } from '@/theme';
@@ -14,6 +14,7 @@ import { colors, spacing, type } from '@/theme';
 export default function PinSetupScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const topInset = useModalTopInset();
   const setPin = useLock((s) => s.setPin);
   const updateSettings = useJournal((s) => s.updateSettings);
 
@@ -54,7 +55,7 @@ export default function PinSetupScreen() {
   };
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom }]}>
+    <View style={[styles.root, { paddingTop: topInset, paddingBottom: insets.bottom }]}>
       <View style={styles.header}>
         <IconButton name="close" onPress={() => router.back()} accessibilityLabel="Zavrieť" />
       </View>

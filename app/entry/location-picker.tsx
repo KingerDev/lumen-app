@@ -5,7 +5,7 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, Vi
 import MapView, { PROVIDER_DEFAULT, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button, Glass, IconButton } from '@/components/ui';
+import { Button, Glass, IconButton, useModalTopInset } from '@/components/ui';
 import { captureCurrentLocation, describePoint } from '@/lib/location';
 import { useEditor } from '@/store/editor';
 import { colors, mapDarkStyle, radius, spacing, type } from '@/theme';
@@ -20,6 +20,7 @@ import { colors, mapDarkStyle, radius, spacing, type } from '@/theme';
 export default function LocationPickerScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const topInset = useModalTopInset();
   const draft = useEditor((s) => s.draft);
   const patch = useEditor((s) => s.patch);
   const mapRef = useRef<MapView>(null);
@@ -107,7 +108,7 @@ export default function LocationPickerScreen() {
         <View style={styles.pinShadow} />
       </View>
 
-      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
+      <View style={[styles.header, { paddingTop: topInset }]}>
         <IconButton name="close" onPress={() => router.back()} accessibilityLabel="Zavrieť" />
         <Glass style={styles.headerTitleWrap}>
           <Text style={styles.headerTitle}>Miesto zápisku</Text>

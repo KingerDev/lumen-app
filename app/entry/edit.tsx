@@ -2,7 +2,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Glass, IconButton } from '@/components/ui';
+import { Glass, IconButton, useModalTopInset } from '@/components/ui';
 import { formatLongDate, formatTime, toLocalISO } from '@/lib/date';
 import { captureCurrentLocation, formatLocation } from '@/lib/location';
 import { capturePhoto, MediaPickError, mediaSource, pickMedia } from '@/lib/media';
@@ -36,6 +36,7 @@ import { colors, radius, spacing, type } from '@/theme';
 export default function EditEntryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const topInset = useModalTopInset();
   const params = useLocalSearchParams<{ id?: string; templateId?: string }>();
 
   const draft = useEditor((s) => s.draft);
@@ -56,6 +57,13 @@ export default function EditEntryScreen() {
   const [picker, setPicker] = useState<'date' | 'time' | null>(null);
   const [locating, setLocating] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  // KeyboardAvoidingView measures itself relative to its parent, not the
+  // screen, so inside an iOS sheet (which starts well below the top edge) it
+  // under-shoots by exactly the sheet's offset and the keyboard covers the
+  // toolbar. Feed that offset back in.
+  const rootRef = useRef<View>(null);
+  const [sheetOffset, setSheetOffset] = useState(0);
 
   const isEditing = Boolean(params.id);
 
@@ -201,192 +209,199 @@ export default function EditEntryScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
+    <View
+      ref={rootRef}
       style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      onLayout={() => rootRef.current?.measureInWindow((_x, y) => setSheetOffset(y))}
     >
-      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <IconButton name="close" onPress={close} accessibilityLabel="Zavrieť" />
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {draft.templateName ?? (isEditing ? 'Upraviť zápisok' : 'Voľný zápis')}
-          </Text>
-        </View>
-        <Pressable
-          onPress={save}
-          style={({ pressed }) => [styles.saveButton, pressed && styles.pressed]}
-        >
-          <Text style={styles.saveLabel}>Uložiť</Text>
-        </Pressable>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={{
-          padding: spacing.lg,
-          paddingBottom: insets.bottom + 140,
-          gap: spacing.md,
-        }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={styles.root}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={sheetOffset}
       >
-        {/* Date & time — always editable, defaulted to the moment of writing. */}
-        <View style={styles.metaCard}>
+        <View style={[styles.header, { paddingTop: topInset }]}>
+          <IconButton name="close" onPress={close} accessibilityLabel="Zavrieť" />
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {draft.templateName ?? (isEditing ? 'Upraviť zápisok' : 'Voľný zápis')}
+            </Text>
+          </View>
           <Pressable
-            onPress={() => setPicker(picker === 'date' ? null : 'date')}
-            style={({ pressed }) => [styles.metaRow, pressed && styles.pressed]}
+            onPress={save}
+            style={({ pressed }) => [styles.saveButton, pressed && styles.pressed]}
           >
-            <Ionicons name="calendar-outline" size={18} color={colors.accent} />
-            <Text style={styles.metaLabel}>{formatLongDate(draft.date)}</Text>
-            <Ionicons name="chevron-down" size={15} color={colors.textFaint} />
-          </Pressable>
-
-          <View style={styles.metaSeparator} />
-
-          <Pressable
-            onPress={() => setPicker(picker === 'time' ? null : 'time')}
-            style={({ pressed }) => [styles.metaRow, styles.metaRowNarrow, pressed && styles.pressed]}
-          >
-            <Ionicons name="time-outline" size={18} color={colors.accent} />
-            <Text style={styles.metaLabel}>{formatTime(draft.date)}</Text>
+            <Text style={styles.saveLabel}>Uložiť</Text>
           </Pressable>
         </View>
 
-        {picker ? (
-          <View style={styles.pickerCard}>
-            <DateTimePicker
-              value={new Date(draft.date)}
-              mode={picker}
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              themeVariant="dark"
-              locale="sk-SK"
-              maximumDate={picker === 'date' ? new Date() : undefined}
-              onChange={onPickDate}
-            />
-            {Platform.OS === 'ios' ? (
-              <Pressable onPress={() => setPicker(null)} style={styles.pickerDone}>
-                <Text style={styles.pickerDoneLabel}>Hotovo</Text>
-              </Pressable>
-            ) : null}
-          </View>
-        ) : null}
-
-        {/* Location — auto-filled, editable by tapping. */}
-        <Pressable
-          onPress={() => router.push('/entry/location-picker')}
-          style={({ pressed }) => [styles.locationRow, pressed && styles.pressed]}
+        <ScrollView
+          contentContainerStyle={{
+            padding: spacing.lg,
+            paddingBottom: insets.bottom + 140,
+            gap: spacing.md,
+          }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <Ionicons
-            name={draft.location ? 'location' : 'location-outline'}
-            size={18}
-            color={draft.location ? colors.accent : colors.textFaint}
-          />
-          <View style={styles.locationBody}>
-            <Text style={styles.locationLabel} numberOfLines={1}>
-              {formatLocation(draft.location) ??
-                (locating ? 'Zisťujem polohu…' : 'Pridať miesto')}
-            </Text>
-            {draft.location?.auto ? (
-              <Text style={styles.locationHint}>automaticky z GPS · ťukni pre úpravu</Text>
-            ) : null}
-          </View>
-          {locating ? (
-            <ActivityIndicator size="small" color={colors.textFaint} />
-          ) : (
-            <Pressable onPress={refreshLocation} hitSlop={10}>
-              <Ionicons name="refresh" size={16} color={colors.textFaint} />
+          {/* Date & time — always editable, defaulted to the moment of writing. */}
+          <View style={styles.metaCard}>
+            <Pressable
+              onPress={() => setPicker(picker === 'date' ? null : 'date')}
+              style={({ pressed }) => [styles.metaRow, pressed && styles.pressed]}
+            >
+              <Ionicons name="calendar-outline" size={18} color={colors.accent} />
+              <Text style={styles.metaLabel}>{formatLongDate(draft.date)}</Text>
+              <Ionicons name="chevron-down" size={15} color={colors.textFaint} />
             </Pressable>
-          )}
-        </Pressable>
 
-        {/* Body — template prompts, or one open field. */}
-        {draft.sections ? (
-          draft.sections.map((section) => (
-            <View key={section.fieldId} style={styles.field}>
-              <Text style={styles.fieldLabel}>{section.label}</Text>
-              <TextInput
-                value={section.value}
-                onChangeText={(value) => setSection(section.fieldId, value)}
-                multiline
-                placeholder="…"
-                placeholderTextColor={colors.textFaint}
-                style={styles.fieldInput}
-              />
-            </View>
-          ))
-        ) : (
-          <TextInput
-            value={draft.text}
-            onChangeText={(text) => patch({ text })}
-            multiline
-            autoFocus={!isEditing}
-            placeholder="Ako bol dnešný deň?"
-            placeholderTextColor={colors.textFaint}
-            style={[styles.fieldInput, styles.freeInput]}
-          />
-        )}
+            <View style={styles.metaSeparator} />
 
-        {/* Attached media */}
-        {draft.media.length ? (
-          <View style={styles.mediaGrid}>
-            {draft.media.map((media) => (
-              <View key={media.id} style={styles.mediaTile}>
-                <Image
-                  source={mediaSource(media)}
-                  style={StyleSheet.absoluteFill}
-                  contentFit="cover"
-                  cachePolicy="memory-disk"
-                />
-                <Pressable
-                  onPress={() => removeMedia(media.id)}
-                  style={styles.mediaRemove}
-                  hitSlop={6}
-                  accessibilityLabel="Odobrať fotku"
-                >
-                  <Ionicons name="close" size={13} color="#fff" />
-                </Pressable>
-                {media.kind === 'video' ? (
-                  <View style={styles.mediaVideo}>
-                    <Ionicons name="play" size={10} color="#fff" />
-                  </View>
-                ) : null}
-              </View>
-            ))}
+            <Pressable
+              onPress={() => setPicker(picker === 'time' ? null : 'time')}
+              style={({ pressed }) => [styles.metaRow, styles.metaRowNarrow, pressed && styles.pressed]}
+            >
+              <Ionicons name="time-outline" size={18} color={colors.accent} />
+              <Text style={styles.metaLabel}>{formatTime(draft.date)}</Text>
+            </Pressable>
           </View>
-        ) : null}
-      </ScrollView>
 
-      {/* Attachment bar */}
-      <Glass style={[styles.toolbar, { paddingBottom: insets.bottom || spacing.lg }]}>
-        <Pressable
-          onPress={() => attach('library')}
-          disabled={busy}
-          style={({ pressed }) => [styles.tool, pressed && styles.pressed]}
-        >
-          <Ionicons name="images-outline" size={20} color={colors.text} />
-          <Text style={styles.toolLabel}>Fotky</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => attach('camera')}
-          disabled={busy}
-          style={({ pressed }) => [styles.tool, pressed && styles.pressed]}
-        >
-          <Ionicons name="camera-outline" size={20} color={colors.text} />
-          <Text style={styles.toolLabel}>Odfotiť</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => patch({ starred: !draft.starred })}
-          style={({ pressed }) => [styles.tool, pressed && styles.pressed]}
-        >
-          <Ionicons
-            name={draft.starred ? 'star' : 'star-outline'}
-            size={20}
-            color={draft.starred ? colors.accent : colors.text}
-          />
-          <Text style={styles.toolLabel}>Obľúbené</Text>
-        </Pressable>
-        {busy ? <ActivityIndicator size="small" color={colors.textMuted} /> : null}
-      </Glass>
-    </KeyboardAvoidingView>
+          {picker ? (
+            <View style={styles.pickerCard}>
+              <DateTimePicker
+                value={new Date(draft.date)}
+                mode={picker}
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                themeVariant="dark"
+                locale="sk-SK"
+                maximumDate={picker === 'date' ? new Date() : undefined}
+                onChange={onPickDate}
+              />
+              {Platform.OS === 'ios' ? (
+                <Pressable onPress={() => setPicker(null)} style={styles.pickerDone}>
+                  <Text style={styles.pickerDoneLabel}>Hotovo</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
+
+          {/* Location — auto-filled, editable by tapping. */}
+          <Pressable
+            onPress={() => router.push('/entry/location-picker')}
+            style={({ pressed }) => [styles.locationRow, pressed && styles.pressed]}
+          >
+            <Ionicons
+              name={draft.location ? 'location' : 'location-outline'}
+              size={18}
+              color={draft.location ? colors.accent : colors.textFaint}
+            />
+            <View style={styles.locationBody}>
+              <Text style={styles.locationLabel} numberOfLines={1}>
+                {formatLocation(draft.location) ??
+                  (locating ? 'Zisťujem polohu…' : 'Pridať miesto')}
+              </Text>
+              {draft.location?.auto ? (
+                <Text style={styles.locationHint}>automaticky z GPS · ťukni pre úpravu</Text>
+              ) : null}
+            </View>
+            {locating ? (
+              <ActivityIndicator size="small" color={colors.textFaint} />
+            ) : (
+              <Pressable onPress={refreshLocation} hitSlop={10}>
+                <Ionicons name="refresh" size={16} color={colors.textFaint} />
+              </Pressable>
+            )}
+          </Pressable>
+
+          {/* Body — template prompts, or one open field. */}
+          {draft.sections ? (
+            draft.sections.map((section) => (
+              <View key={section.fieldId} style={styles.field}>
+                <Text style={styles.fieldLabel}>{section.label}</Text>
+                <TextInput
+                  value={section.value}
+                  onChangeText={(value) => setSection(section.fieldId, value)}
+                  multiline
+                  placeholder="…"
+                  placeholderTextColor={colors.textFaint}
+                  style={styles.fieldInput}
+                />
+              </View>
+            ))
+          ) : (
+            <TextInput
+              value={draft.text}
+              onChangeText={(text) => patch({ text })}
+              multiline
+              autoFocus={!isEditing}
+              placeholder="Ako bol dnešný deň?"
+              placeholderTextColor={colors.textFaint}
+              style={[styles.fieldInput, styles.freeInput]}
+            />
+          )}
+
+          {/* Attached media */}
+          {draft.media.length ? (
+            <View style={styles.mediaGrid}>
+              {draft.media.map((media) => (
+                <View key={media.id} style={styles.mediaTile}>
+                  <Image
+                    source={mediaSource(media)}
+                    style={StyleSheet.absoluteFill}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                  />
+                  <Pressable
+                    onPress={() => removeMedia(media.id)}
+                    style={styles.mediaRemove}
+                    hitSlop={6}
+                    accessibilityLabel="Odobrať fotku"
+                  >
+                    <Ionicons name="close" size={13} color="#fff" />
+                  </Pressable>
+                  {media.kind === 'video' ? (
+                    <View style={styles.mediaVideo}>
+                      <Ionicons name="play" size={10} color="#fff" />
+                    </View>
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </ScrollView>
+
+        {/* Attachment bar */}
+        <Glass style={[styles.toolbar, { paddingBottom: insets.bottom || spacing.lg }]}>
+          <Pressable
+            onPress={() => attach('library')}
+            disabled={busy}
+            style={({ pressed }) => [styles.tool, pressed && styles.pressed]}
+          >
+            <Ionicons name="images-outline" size={20} color={colors.text} />
+            <Text style={styles.toolLabel}>Fotky</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => attach('camera')}
+            disabled={busy}
+            style={({ pressed }) => [styles.tool, pressed && styles.pressed]}
+          >
+            <Ionicons name="camera-outline" size={20} color={colors.text} />
+            <Text style={styles.toolLabel}>Odfotiť</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => patch({ starred: !draft.starred })}
+            style={({ pressed }) => [styles.tool, pressed && styles.pressed]}
+          >
+            <Ionicons
+              name={draft.starred ? 'star' : 'star-outline'}
+              size={20}
+              color={draft.starred ? colors.accent : colors.text}
+            />
+            <Text style={styles.toolLabel}>Obľúbené</Text>
+          </Pressable>
+          {busy ? <ActivityIndicator size="small" color={colors.textMuted} /> : null}
+        </Glass>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 

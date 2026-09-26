@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -115,151 +116,154 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScrollView
-      style={styles.root}
-      contentContainerStyle={{
-        paddingTop: insets.top + spacing.sm,
-        paddingHorizontal: spacing.lg,
-        paddingBottom: 110,
-      }}
-      showsVerticalScrollIndicator={false}
-    >
-      <Text style={styles.title}>Nastavenia</Text>
+    // The scroll view starts below the status bar (like the other tabs), so
+    // rows never slide under the clock — iOS 26 draws no bar behind it.
+    <View style={[styles.root, { paddingTop: insets.top }]}>
+      <ScrollView
+        contentContainerStyle={{
+          paddingTop: spacing.sm,
+          paddingHorizontal: spacing.lg,
+          paddingBottom: 110,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.title}>Nastavenia</Text>
 
-      <View style={styles.stats}>
-        <Stat value={entries.length} label="zápiskov" />
-        <Stat value={mediaCount} label="fotiek" />
-        <Stat value={locatedCount} label="s miestom" />
-      </View>
+        <View style={styles.stats}>
+          <Stat value={entries.length} label="zápiskov" />
+          <Stat value={mediaCount} label="fotiek" />
+          <Stat value={locatedCount} label="s miestom" />
+        </View>
 
-      <Group label="Zabezpečenie">
-        <Row
-          icon="lock-closed-outline"
-          title="PIN kód"
-          subtitle={hasPin ? 'Zapnutý — vyžaduje sa pri otvorení' : 'Vypnutý'}
-          right={<Switch value={hasPin} onValueChange={togglePin} {...switchColors} />}
-        />
-        {hasPin ? (
-          <>
-            <Row
-              icon="finger-print-outline"
-              title="Face ID / odtlačok"
-              subtitle={
-                bioAvailable ? 'Rýchle odomknutie namiesto PIN-u' : 'Na tomto zariadení nedostupné'
-              }
-              right={
-                <Switch
-                  value={settings.biometricsEnabled}
-                  disabled={!bioAvailable}
-                  onValueChange={(value) => updateSettings({ biometricsEnabled: value })}
-                  {...switchColors}
-                />
-              }
-            />
-            <Row
-              icon="timer-outline"
-              title="Zamknúť po"
-              subtitle={`${settings.lockAfterSeconds} s na pozadí`}
-              onPress={() =>
-                updateSettings({
-                  lockAfterSeconds: nextGrace(settings.lockAfterSeconds),
-                })
-              }
-              right={<Ionicons name="chevron-forward" size={16} color={colors.textFaint} />}
-            />
-            <Row
-              icon="lock-open-outline"
-              title="Zmeniť PIN"
-              onPress={() => router.push('/settings/pin')}
-              right={<Ionicons name="chevron-forward" size={16} color={colors.textFaint} />}
-            />
-            <Row
-              icon="power-outline"
-              title="Zamknúť teraz"
-              onPress={lock}
-              right={<Ionicons name="chevron-forward" size={16} color={colors.textFaint} />}
-            />
-          </>
-        ) : null}
-      </Group>
+        <Group label="Zabezpečenie">
+          <Row
+            icon="lock-closed-outline"
+            title="PIN kód"
+            subtitle={hasPin ? 'Zapnutý — vyžaduje sa pri otvorení' : 'Vypnutý'}
+            right={<Switch value={hasPin} onValueChange={togglePin} {...switchColors} />}
+          />
+          {hasPin ? (
+            <>
+              <Row
+                icon="finger-print-outline"
+                title="Face ID / odtlačok"
+                subtitle={
+                  bioAvailable ? 'Rýchle odomknutie namiesto PIN-u' : 'Na tomto zariadení nedostupné'
+                }
+                right={
+                  <Switch
+                    value={settings.biometricsEnabled}
+                    disabled={!bioAvailable}
+                    onValueChange={(value) => updateSettings({ biometricsEnabled: value })}
+                    {...switchColors}
+                  />
+                }
+              />
+              <Row
+                icon="timer-outline"
+                title="Zamknúť po"
+                subtitle={`${settings.lockAfterSeconds} s na pozadí`}
+                onPress={() =>
+                  updateSettings({
+                    lockAfterSeconds: nextGrace(settings.lockAfterSeconds),
+                  })
+                }
+                right={<Ionicons name="chevron-forward" size={16} color={colors.textFaint} />}
+              />
+              <Row
+                icon="lock-open-outline"
+                title="Zmeniť PIN"
+                onPress={() => router.push('/settings/pin')}
+                right={<Ionicons name="chevron-forward" size={16} color={colors.textFaint} />}
+              />
+              <Row
+                icon="power-outline"
+                title="Zamknúť teraz"
+                onPress={lock}
+                right={<Ionicons name="chevron-forward" size={16} color={colors.textFaint} />}
+              />
+            </>
+          ) : null}
+        </Group>
 
-      <Group label="Zápisky">
-        <Row
-          icon="flame-outline"
-          title="Séria"
-          subtitle={streakSubtitle(streak)}
-          right={
-            <Text style={[styles.streakValue, streak.current === 0 && styles.streakValueOff]}>
-              {streak.current}
-            </Text>
-          }
-        />
-        <Row
-          icon="navigate-outline"
-          title="Automatická poloha"
-          subtitle="Pri novom zápisku sa uloží aktuálne miesto"
-          right={
-            <Switch
-              value={settings.autoLocation}
-              onValueChange={(value) => updateSettings({ autoLocation: value })}
-              {...switchColors}
-            />
-          }
-        />
-        <Row
-          icon="swap-vertical-outline"
-          title="Zoradenie"
-          subtitle={settings.sortOrder === 'newest' ? 'Najnovšie hore' : 'Najstaršie hore'}
-          onPress={() =>
-            updateSettings({ sortOrder: settings.sortOrder === 'newest' ? 'oldest' : 'newest' })
-          }
-          right={<Ionicons name="chevron-forward" size={16} color={colors.textFaint} />}
-        />
-        <Row
-          icon="documents-outline"
-          title="Šablóny"
-          subtitle={`${templates.length} šablón`}
-          onPress={() => router.push('/templates')}
-          right={<Ionicons name="chevron-forward" size={16} color={colors.textFaint} />}
-        />
-      </Group>
+        <Group label="Zápisky">
+          <Row
+            icon="flame-outline"
+            title="Séria"
+            subtitle={streakSubtitle(streak)}
+            right={
+              <Text style={[styles.streakValue, streak.current === 0 && styles.streakValueOff]}>
+                {streak.current}
+              </Text>
+            }
+          />
+          <Row
+            icon="navigate-outline"
+            title="Automatická poloha"
+            subtitle="Pri novom zápisku sa uloží aktuálne miesto"
+            right={
+              <Switch
+                value={settings.autoLocation}
+                onValueChange={(value) => updateSettings({ autoLocation: value })}
+                {...switchColors}
+              />
+            }
+          />
+          <Row
+            icon="swap-vertical-outline"
+            title="Zoradenie"
+            subtitle={settings.sortOrder === 'newest' ? 'Najnovšie hore' : 'Najstaršie hore'}
+            onPress={() =>
+              updateSettings({ sortOrder: settings.sortOrder === 'newest' ? 'oldest' : 'newest' })
+            }
+            right={<Ionicons name="chevron-forward" size={16} color={colors.textFaint} />}
+          />
+          <Row
+            icon="documents-outline"
+            title="Šablóny"
+            subtitle={`${templates.length} šablón`}
+            onPress={() => router.push('/templates')}
+            right={<Ionicons name="chevron-forward" size={16} color={colors.textFaint} />}
+          />
+        </Group>
 
-      <Group label="Dáta">
-        <Row
-          icon={syncError ? 'cloud-offline-outline' : 'cloud-done-outline'}
-          title="Synchronizácia"
-          subtitle={
-            syncError ??
-            (lastSyncAt ? `Naposledy ${formatDateTime(lastSyncAt)}` : 'Zatiaľ neprebehla')
-          }
-          danger={Boolean(syncError)}
-          onPress={() => void sync()}
-          right={
-            syncing ? (
-              <ActivityIndicator size="small" color={colors.textFaint} />
-            ) : (
-              <Ionicons name="refresh" size={16} color={colors.textFaint} />
-            )
-          }
-        />
-        <Row
-          icon="person-outline"
-          title="Účet"
-          subtitle={user?.email ?? 'Neprihlásený'}
-          onPress={confirmLogout}
-          right={<Text style={styles.soon}>odhlásiť</Text>}
-        />
-        <Row
-          icon="trash-outline"
-          title="Zmazať všetky dáta"
-          danger
-          onPress={confirmWipe}
-          right={<Ionicons name="chevron-forward" size={16} color={colors.danger} />}
-        />
-      </Group>
+        <Group label="Dáta">
+          <Row
+            icon={syncError ? 'cloud-offline-outline' : 'cloud-done-outline'}
+            title="Synchronizácia"
+            subtitle={
+              syncError ??
+              (lastSyncAt ? `Naposledy ${formatDateTime(lastSyncAt)}` : 'Zatiaľ neprebehla')
+            }
+            danger={Boolean(syncError)}
+            onPress={() => void sync()}
+            right={
+              syncing ? (
+                <ActivityIndicator size="small" color={colors.textFaint} />
+              ) : (
+                <Ionicons name="refresh" size={16} color={colors.textFaint} />
+              )
+            }
+          />
+          <Row
+            icon="person-outline"
+            title="Účet"
+            subtitle={user?.email ?? 'Neprihlásený'}
+            onPress={confirmLogout}
+            right={<Text style={styles.soon}>odhlásiť</Text>}
+          />
+          <Row
+            icon="trash-outline"
+            title="Zmazať všetky dáta"
+            danger
+            onPress={confirmWipe}
+            right={<Ionicons name="chevron-forward" size={16} color={colors.danger} />}
+          />
+        </Group>
 
-      <Text style={styles.version}>Lumen 1.0.0</Text>
-    </ScrollView>
+        <Text style={styles.version}>Lumen {Constants.expoConfig?.version}</Text>
+      </ScrollView>
+    </View>
   );
 }
 

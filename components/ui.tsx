@@ -116,6 +116,17 @@ export function useTabBarInset() {
   return Platform.OS === 'ios' ? insets.bottom : 0;
 }
 
+/**
+ * Top padding for a screen presented as a modal. On iOS a modal is a sheet
+ * that starts below the status bar, yet the safe-area top inset still reports
+ * the status bar — adding it leaves a tall empty band above the header. On
+ * Android the modal is full-screen, so the inset is real.
+ */
+export function useModalTopInset() {
+  const insets = useSafeAreaInsets();
+  return Platform.OS === 'ios' ? spacing.sm : insets.top + spacing.sm;
+}
+
 /** Circular glass icon button used in headers and over photos and maps. */
 export function IconButton({
   name,

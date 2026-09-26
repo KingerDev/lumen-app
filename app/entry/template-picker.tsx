@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { IconButton } from '@/components/ui';
+import { IconButton, useModalTopInset } from '@/components/ui';
 import { useJournal } from '@/store/journal';
 import { colors, radius, spacing, type } from '@/theme';
 
@@ -11,6 +11,7 @@ import { colors, radius, spacing, type } from '@/theme';
 export default function TemplatePickerScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const topInset = useModalTopInset();
   const templates = useJournal((s) => s.templates);
 
   const start = (templateId?: string) => {
@@ -21,7 +22,7 @@ export default function TemplatePickerScreen() {
   };
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + spacing.sm }]}>
+    <View style={[styles.root, { paddingTop: topInset }]}>
       <View style={styles.header}>
         <View style={styles.headerText}>
           <Text style={styles.title}>Nový zápisok</Text>
