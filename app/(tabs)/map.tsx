@@ -1,17 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { EntryCard } from '@/components/EntryCard';
 import { boundsOf, clusterEntries, type Cluster } from '@/components/MapCluster';
-import { EmptyState } from '@/components/ui';
-import { formatRelativeDay, formatTime } from '@/lib/date';
-import { mediaSource } from '@/lib/media';
-import { previewText } from '@/lib/templates';
+import { EmptyState, Glass, IconButton, useTabBarInset } from '@/components/ui';
 import { useJournal } from '@/store/journal';
 import { colors, mapDarkStyle, radius, shadow, spacing, type } from '@/theme';
 
@@ -22,6 +19,7 @@ import { colors, mapDarkStyle, radius, shadow, spacing, type } from '@/theme';
 export default function MapScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const tabBarInset = useTabBarInset();
   const entries = useJournal((s) => s.entries);
   const mapRef = useRef<MapView>(null);
 
@@ -30,13 +28,28 @@ export default function MapScreen() {
 
   const [region, setRegion] = useState<Region>(initialRegion as Region);
   const [selected, setSelected] = useState<Cluster | null>(null);
+  const sortOrder = useJournal((s) => s.settings.sortOrder);
+
+  // Same order as the Denník tab, so a place reads like a slice of the journal.
+  const selectedEntries = useMemo(() => {
+    if (!selected) return [];
+    return [...selected.entries].sort((a, b) =>
+      sortOrder === 'oldest' ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date)
+    );
+  }, [selected, sortOrder]);
 
   const clusters = useMemo(
     () => clusterEntries(located, region.latitudeDelta),
     [located, region.latitudeDelta]
   );
 
+  // On iOS the map's own tap recognizer fires for marker taps too, right
+  // after the marker's onPress — without this guard it would close the sheet
+  // the marker just opened.
+  const markerPressedAt = useRef(0);
+
   const focus = (cluster: Cluster) => {
+    markerPressedAt.current = Date.now();
     setSelected(cluster);
     mapRef.current?.animateToRegion(
       {
@@ -71,7 +84,9 @@ export default function MapScreen() {
         userInterfaceStyle="dark"
         initialRegion={initialRegion as Region}
         onRegionChangeComplete={setRegion}
-        onPress={() => setSelected(null)}
+        onPress={() => {
+          if (Date.now() - markerPressedAt.current > 400) setSelected(null);
+        }}
         showsUserLocation
         showsMyLocationButton={false}
         showsCompass={false}
@@ -97,23 +112,31 @@ export default function MapScreen() {
       </MapView>
 
       <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
-        <View style={styles.stat}>
+        <Glass style={styles.stat}>
           <Ionicons name="location" size={14} color={colors.accent} />
           <Text style={styles.statText}>
             {clusters.length} miest · {located.length} zápiskov
           </Text>
-        </View>
-        <Pressable
+        </Glass>
+        <IconButton
+          name="scan-outline"
+          size={18}
           onPress={() => mapRef.current?.animateToRegion(initialRegion as Region, 400)}
-          style={({ pressed }) => [styles.roundButton, pressed && styles.pressed]}
           accessibilityLabel="Zobraziť všetko"
-        >
-          <Ionicons name="scan-outline" size={18} color={colors.text} />
-        </Pressable>
+        />
       </View>
 
       {selected ? (
-        <View style={[styles.sheet, { paddingBottom: insets.bottom + 78 }]}>
+        <Glass
+          style={[
+            styles.sheet,
+            // A list only scrolls inside a fixed height; with maxHeight alone it
+            // grows to its full content and the rest is just clipped. A few
+            // entries keep the sheet hugging its content instead.
+            selectedEntries.length > 3 && styles.sheetTall,
+            { bottom: tabBarInset + spacing.sm },
+          ]}
+        >
           <View style={styles.sheetHandle} />
           <View style={styles.sheetHead}>
             <View style={styles.sheetTitleWrap}>
@@ -130,39 +153,22 @@ export default function MapScreen() {
           </View>
 
           <FlashList
-            data={selected.entries}
+            data={selectedEntries}
             keyExtractor={(entry) => entry.id}
-            contentContainerStyle={{ paddingHorizontal: spacing.lg }}
+            // flex: 1 only under the fixed height — in a content-sized sheet
+            // it would collapse the list to nothing.
+            style={selectedEntries.length > 3 ? styles.sheetList : undefined}
+            contentContainerStyle={{ paddingHorizontal: spacing.sm }}
             renderItem={({ item }) => (
-              <Pressable
-                onPress={() => router.push({ pathname: '/entry/[id]', params: { id: item.id } })}
-                style={({ pressed }) => [styles.sheetRow, pressed && styles.pressed]}
-              >
-                {item.media[0] ? (
-                  <Image
-                    source={mediaSource(item.media[0])}
-                    style={styles.sheetThumb}
-                    contentFit="cover"
-                    cachePolicy="memory-disk"
-                  />
-                ) : (
-                  <View style={[styles.sheetThumb, styles.sheetThumbEmpty]}>
-                    <Ionicons name="document-text-outline" size={16} color={colors.textFaint} />
-                  </View>
-                )}
-                <View style={styles.sheetRowBody}>
-                  <Text style={styles.sheetRowDate}>
-                    {formatRelativeDay(item.date)} · {formatTime(item.date)}
-                  </Text>
-                  <Text style={styles.sheetRowText} numberOfLines={1}>
-                    {previewText(item.text, item.sections) || 'Prázdny zápisok'}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
-              </Pressable>
+              <View style={styles.cardWrap}>
+                <EntryCard
+                  entry={item}
+                  onPress={() => router.push({ pathname: '/entry/[id]', params: { id: item.id } })}
+                />
+              </View>
             )}
           />
-        </View>
+        </Glass>
       ) : null}
     </View>
   );
@@ -171,7 +177,6 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   center: { justifyContent: 'center' },
-  pressed: { opacity: 0.6 },
 
   pin: {
     minWidth: 34,
@@ -204,39 +209,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.surface,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.lg,
     height: 38,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    ...shadow.card,
   },
   statText: { ...type.caption, color: colors.text },
-  roundButton: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    ...shadow.card,
-  },
 
   sheet: {
+    // Floats as a glass card above the tab bar; `bottom` is set inline.
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    maxHeight: '52%',
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    ...shadow.float,
+    left: spacing.sm,
+    right: spacing.sm,
+    maxHeight: '62%',
+    borderRadius: radius.xl + 6,
+    paddingBottom: spacing.sm,
   },
   sheetHandle: {
     alignSelf: 'center',
@@ -257,15 +243,7 @@ const styles = StyleSheet.create({
   sheetTitle: { ...type.section, color: colors.text },
   sheetSubtitle: { ...type.caption, color: colors.textFaint, marginTop: 2 },
 
-  sheetRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  sheetThumb: { width: 42, height: 42, borderRadius: radius.sm, backgroundColor: colors.surfaceRaised },
-  sheetThumbEmpty: { alignItems: 'center', justifyContent: 'center' },
-  sheetRowBody: { flex: 1, gap: 2 },
-  sheetRowDate: { ...type.caption, color: colors.accent },
-  sheetRowText: { ...type.small, color: colors.textMuted },
+  sheetTall: { height: '62%' },
+  sheetList: { flex: 1 },
+  cardWrap: { paddingBottom: spacing.sm },
 });

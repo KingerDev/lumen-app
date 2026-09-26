@@ -1,13 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { forwardRef } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   type PressableProps,
   StyleSheet,
   Text,
   View,
+  type ViewProps,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, radius, spacing, type } from '@/theme';
 
@@ -56,19 +60,76 @@ export const Button = forwardRef<View, ButtonProps>(function Button(
   );
 });
 
-/** Circular icon button used in headers and over photos. */
+const liquidGlass = isLiquidGlassAvailable();
+
+/**
+ * Liquid glass surface for the floating control layer (buttons, bars, sheets
+ * over maps and photos) — not for content like entry cards. Where iOS 26 glass
+ * is unavailable it falls back to `fallback`, a solid surface by default, so
+ * the same markup still reads on older iOS and Android.
+ */
+export function Glass({
+  tint,
+  interactive,
+  fallback = colors.surface,
+  style,
+  children,
+  ...rest
+}: ViewProps & {
+  /** tints the glass, e.g. the accent for a primary action */
+  tint?: string;
+  /** the glass reacts to touch (press highlight, shimmer) */
+  interactive?: boolean;
+  fallback?: string;
+}) {
+  if (liquidGlass) {
+    return (
+      <GlassView
+        glassEffectStyle="regular"
+        colorScheme="dark"
+        tintColor={tint}
+        isInteractive={interactive}
+        style={[styles.glass, style]}
+        {...rest}
+      >
+        {children}
+      </GlassView>
+    );
+  }
+  return (
+    <View
+      style={[styles.glass, !tint && styles.glassFallback, { backgroundColor: tint ?? fallback }, style]}
+      {...rest}
+    >
+      {children}
+    </View>
+  );
+}
+
+/**
+ * Space the native tab bar takes at the bottom of a tab screen. On iOS the
+ * scene runs under the (glass) bar and each tab gets its own safe-area
+ * provider that already includes it; on Android the scene sits above the bar.
+ */
+export function useTabBarInset() {
+  const insets = useSafeAreaInsets();
+  return Platform.OS === 'ios' ? insets.bottom : 0;
+}
+
+/** Circular glass icon button used in headers and over photos and maps. */
 export function IconButton({
   name,
   onPress,
   size = 20,
   tint = colors.text,
-  background = colors.surfaceRaised,
+  background,
   accessibilityLabel,
 }: {
   name: keyof typeof Ionicons.glyphMap;
   onPress?: () => void;
   size?: number;
   tint?: string;
+  /** tints the glass (solid colour where glass is unavailable) */
   background?: string;
   accessibilityLabel?: string;
 }) {
@@ -78,12 +139,16 @@ export function IconButton({
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       hitSlop={8}
-      style={({ pressed }) => [
-        styles.iconButton,
-        { backgroundColor: background, opacity: pressed ? 0.6 : 1 },
-      ]}
+      style={({ pressed }) => ({ opacity: pressed && !liquidGlass ? 0.6 : 1 })}
     >
-      <Ionicons name={name} size={size} color={tint} />
+      <Glass
+        interactive
+        tint={background}
+        fallback={colors.surfaceRaised}
+        style={styles.iconButton}
+      >
+        <Ionicons name={name} size={size} color={tint} />
+      </Glass>
     </Pressable>
   );
 }
@@ -141,6 +206,9 @@ const styles = StyleSheet.create({
   buttonPressed: { opacity: 0.75 },
   buttonDisabled: { opacity: 0.4 },
   buttonLabel: { ...type.bodyStrong },
+
+  glass: { overflow: 'hidden' },
+  glassFallback: { borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
 
   iconButton: {
     width: 38,

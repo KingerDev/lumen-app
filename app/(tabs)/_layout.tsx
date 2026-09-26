@@ -1,74 +1,56 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
-import { Platform, StyleSheet } from 'react-native';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
 import { colors, type } from '@/theme';
 
+/**
+ * Native tab bar: on iOS 26 the system draws it as liquid glass (and lets it
+ * shrink while scrolling); older iOS and Android get their platform bar.
+ * SF Symbols on iOS, the same Ionicons as before everywhere else.
+ */
 export default function TabsLayout() {
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        sceneStyle: { backgroundColor: colors.bg },
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.textFaint,
-        tabBarStyle: styles.bar,
-        tabBarLabelStyle: styles.label,
-        tabBarItemStyle: { paddingTop: Platform.OS === 'ios' ? 6 : 0 },
+    <NativeTabs
+      tintColor={colors.accent}
+      iconColor={{ default: colors.textMuted, selected: colors.accent }}
+      labelStyle={{
+        default: { ...type.caption, fontSize: 11, color: colors.textMuted },
+        selected: { ...type.caption, fontSize: 11, color: colors.accent },
       }}
+      indicatorColor={colors.accentSoft}
+      minimizeBehavior="onScrollDown"
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Denník',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'book' : 'book-outline'} size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="gallery"
-        options={{
-          title: 'Galéria',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'images' : 'images-outline'} size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="map"
-        options={{
-          title: 'Mapa',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'map' : 'map-outline'} size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Nastavenia',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'settings' : 'settings-outline'}
-              size={22}
-              color={color}
-            />
-          ),
-        }}
-      />
-    </Tabs>
+      <NativeTabs.Trigger name="index" contentStyle={{ backgroundColor: colors.bg }}>
+        <NativeTabs.Trigger.Label>Denník</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: 'book', selected: 'book.fill' }}
+          src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="book" />}
+        />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="gallery" contentStyle={{ backgroundColor: colors.bg }}>
+        <NativeTabs.Trigger.Label>Galéria</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: 'photo.on.rectangle', selected: 'photo.fill.on.rectangle.fill' }}
+          src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="images" />}
+        />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="map" contentStyle={{ backgroundColor: colors.bg }}>
+        <NativeTabs.Trigger.Label>Mapa</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: 'map', selected: 'map.fill' }}
+          src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="map" />}
+        />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="settings" contentStyle={{ backgroundColor: colors.bg }}>
+        <NativeTabs.Trigger.Label>Nastavenia</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: 'gearshape', selected: 'gearshape.fill' }}
+          src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="settings" />}
+        />
+      </NativeTabs.Trigger>
+    </NativeTabs>
   );
 }
-
-const styles = StyleSheet.create({
-  bar: {
-    backgroundColor: colors.surface,
-    borderTopColor: colors.border,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    height: Platform.OS === 'ios' ? 88 : 64,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 8,
-    paddingTop: 8,
-  },
-  label: { ...type.caption, fontSize: 11 },
-});

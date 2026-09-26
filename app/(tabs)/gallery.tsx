@@ -15,8 +15,12 @@ import type { Entry, Media } from '@/types';
 
 /**
  * Photo grid grouped by date, the way the phone's own gallery groups it.
- * Two densities: "Dni" (3 across, one section per day) and "Mesiace" (5 across,
+ * Two densities: "Dni" (3 across, one section per day) and "Mesiace" (4 across,
  * one section per month) for scanning years quickly.
+ *
+ * Every day that has a zápisok gets a place: one written without a photo shows
+ * as a dark tile with a text glyph (tap opens that zápisok). Days with nothing
+ * written are left out.
  */
 
 type Grouping = 'day' | 'month';
@@ -27,9 +31,12 @@ interface Shot {
   date: string;
 }
 
+/** A photo, or a stand-in for a day written without one (its newest zápisok). */
+type Cell = { kind: 'shot'; shot: Shot } | { kind: 'text'; entryId: string; date: string };
+
 type Row =
   | { kind: 'header'; key: string; title: string; subtitle: string; count: number }
-  | { kind: 'grid'; key: string; shots: Shot[] };
+  | { kind: 'grid'; key: string; cells: Cell[] };
 
 export default function GalleryScreen() {
   const router = useRouter();
@@ -53,36 +60,57 @@ export default function GalleryScreen() {
   );
 
   const rows = useMemo<Row[]>(() => {
-    const buckets = new Map<string, Shot[]>();
+    const shotsByDay = new Map<string, Shot[]>();
     shots.forEach((shot) => {
-      const key = grouping === 'day' ? dayKey(shot.date) : monthKey(shot.date);
-      const bucket = buckets.get(key);
+      const key = dayKey(shot.date);
+      const bucket = shotsByDay.get(key);
       if (bucket) bucket.push(shot);
-      else buckets.set(key, [shot]);
+      else shotsByDay.set(key, [shot]);
+    });
+    shotsByDay.forEach((bucket) => bucket.sort((a, b) => b.date.localeCompare(a.date)));
+
+    const newestEntryByDay = new Map<string, Entry>();
+    entries.forEach((entry) => {
+      const key = dayKey(entry.date);
+      const current = newestEntryByDay.get(key);
+      if (!current || entry.date > current.date) newestEntryByDay.set(key, entry);
     });
 
-    const out: Row[] = [];
-    [...buckets.entries()]
+    // Only days that have a zápisok; newest first.
+    const buckets = new Map<string, { first: string; cells: Cell[]; count: number }>();
+    [...newestEntryByDay.entries()]
       .sort((a, b) => b[0].localeCompare(a[0]))
-      .forEach(([key, bucketShots]) => {
-        const first = bucketShots[0].date;
-        out.push({
-          kind: 'header',
-          key: `h-${key}`,
-          title: grouping === 'day' ? formatLongDate(first) : formatMonth(first),
-          subtitle: grouping === 'day' ? formatWeekday(first) : '',
-          count: bucketShots.length,
-        });
-        for (let i = 0; i < bucketShots.length; i += columns) {
-          out.push({
-            kind: 'grid',
-            key: `g-${key}-${i}`,
-            shots: bucketShots.slice(i, i + columns),
-          });
+      .forEach(([key, newest]) => {
+        const bucketKey = grouping === 'day' ? key : monthKey(newest.date);
+        let bucket = buckets.get(bucketKey);
+        if (!bucket) {
+          bucket = { first: newest.date, cells: [], count: 0 };
+          buckets.set(bucketKey, bucket);
+        }
+        const dayShots = shotsByDay.get(key);
+        if (dayShots) {
+          dayShots.forEach((shot) => bucket.cells.push({ kind: 'shot', shot }));
+          bucket.count += dayShots.length;
+        } else {
+          bucket.cells.push({ kind: 'text', entryId: newest.id, date: newest.date });
         }
       });
+
+    const out: Row[] = [];
+    buckets.forEach(({ first, cells, count }, key) => {
+      out.push({
+        kind: 'header',
+        key: `h-${key}`,
+        title: grouping === 'day' ? formatLongDate(first) : formatMonth(first),
+        subtitle: grouping === 'day' ? formatWeekday(first) : '',
+        count,
+      });
+      for (let i = 0; i < cells.length; i += columns) {
+        out.push({ kind: 'grid', key: `g-${key}-${i}`, cells: cells.slice(i, i + columns) });
+      }
+    });
     return out;
-  }, [columns, grouping, shots]);
+  }, [columns, entries, grouping, shots]);
 
   const openViewer = (shot: Shot) => {
     router.push({
@@ -134,15 +162,27 @@ export default function GalleryScreen() {
             </View>
           ) : (
             <View style={[styles.grid, { gap: gutter }]}>
-              {item.shots.map((shot) => (
-                <Tile
-                  key={shot.media.id}
-                  shot={shot}
-                  size={tile}
-                  showDate={grouping === 'month'}
-                  onPress={() => openViewer(shot)}
-                />
-              ))}
+              {item.cells.map((cell) =>
+                cell.kind === 'shot' ? (
+                  <Tile
+                    key={cell.shot.media.id}
+                    shot={cell.shot}
+                    size={tile}
+                    showDate={grouping === 'month'}
+                    onPress={() => openViewer(cell.shot)}
+                  />
+                ) : (
+                  <TextTile
+                    key={`t-${cell.entryId}`}
+                    date={cell.date}
+                    size={tile}
+                    showDate={grouping === 'month'}
+                    onPress={() =>
+                      router.push({ pathname: '/entry/[id]', params: { id: cell.entryId } })
+                    }
+                  />
+                )
+              )}
             </View>
           )
         }
@@ -200,6 +240,44 @@ function Tile({
   );
 }
 
+/** A day written without a photo: dark tile with a text glyph, opens the zápisok. */
+function TextTile({
+  date,
+  size,
+  showDate,
+  onPress,
+}: {
+  date: string;
+  size: number;
+  showDate: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        { width: size, height: size },
+        styles.tile,
+        styles.textTile,
+        pressed && styles.tilePressed,
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={`Zápisok bez fotky z ${formatLongDate(date)}`}
+    >
+      <Ionicons
+        name="document-text-outline"
+        size={Math.min(22, size * 0.28)}
+        color={colors.textMuted}
+      />
+      {showDate ? (
+        <View style={styles.dayBadge}>
+          <Text style={styles.dayBadgeText}>{new Date(date).getDate()}</Text>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
 
@@ -243,6 +321,11 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', marginBottom: 3 },
   tile: { borderRadius: radius.sm, overflow: 'hidden', backgroundColor: colors.surfaceRaised },
   tilePressed: { opacity: 0.7 },
+  textTile: {
+    backgroundColor: colors.surfaceRaised,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   dayBadge: {
     position: 'absolute',

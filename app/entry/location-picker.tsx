@@ -5,10 +5,10 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, Vi
 import MapView, { PROVIDER_DEFAULT, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button, IconButton } from '@/components/ui';
+import { Button, Glass, IconButton } from '@/components/ui';
 import { captureCurrentLocation, describePoint } from '@/lib/location';
 import { useEditor } from '@/store/editor';
-import { colors, mapDarkStyle, radius, shadow, spacing, type } from '@/theme';
+import { colors, mapDarkStyle, radius, spacing, type } from '@/theme';
 
 /**
  * Adjust the entry's place.
@@ -109,7 +109,9 @@ export default function LocationPickerScreen() {
 
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <IconButton name="close" onPress={() => router.back()} accessibilityLabel="Zavrieť" />
-        <Text style={styles.headerTitle}>Miesto zápisku</Text>
+        <Glass style={styles.headerTitleWrap}>
+          <Text style={styles.headerTitle}>Miesto zápisku</Text>
+        </Glass>
         <IconButton
           name="navigate"
           onPress={useCurrent}
@@ -118,7 +120,7 @@ export default function LocationPickerScreen() {
         />
       </View>
 
-      <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]}>
+      <Glass style={[styles.sheet, { bottom: insets.bottom || spacing.sm }]}>
         <View style={styles.inputRow}>
           <Ionicons name="pricetag-outline" size={16} color={colors.textFaint} />
           <TextInput
@@ -152,7 +154,7 @@ export default function LocationPickerScreen() {
           </Pressable>
           <Button label="Potvrdiť" icon="checkmark" onPress={confirm} />
         </View>
-      </View>
+      </Glass>
     </View>
   );
 }
@@ -171,15 +173,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
   },
-  headerTitle: {
-    ...type.bodyStrong,
-    color: colors.text,
-    backgroundColor: colors.surface,
+  headerTitleWrap: {
     paddingHorizontal: spacing.lg,
     paddingVertical: 8,
     borderRadius: radius.pill,
-    overflow: 'hidden',
   },
+  headerTitle: { ...type.bodyStrong, color: colors.text },
 
   pinAnchor: {
     position: 'absolute',
@@ -198,18 +197,13 @@ const styles = StyleSheet.create({
   },
 
   sheet: {
+    // Floating glass card over the map; `bottom` is set inline.
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
+    left: spacing.sm,
+    right: spacing.sm,
     gap: spacing.sm,
     padding: spacing.lg,
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    ...shadow.float,
+    borderRadius: radius.xl + 6,
   },
   inputRow: {
     flexDirection: 'row',

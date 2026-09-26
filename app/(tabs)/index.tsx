@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EntryCard } from '@/components/EntryCard';
 import { StreakBadge } from '@/components/StreakBadge';
-import { Button, EmptyState } from '@/components/ui';
+import { Button, EmptyState, Glass, IconButton, useTabBarInset } from '@/components/ui';
 import { plural } from '@/lib/plural';
 import { computeStreak } from '@/lib/streak';
 import { useJournal } from '@/store/journal';
@@ -22,6 +22,7 @@ import type { Entry } from '@/types';
 export default function JournalScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const tabBarInset = useTabBarInset();
   const entries = useJournal((s) => s.entries);
   const sortOrder = useJournal((s) => s.settings.sortOrder);
 
@@ -55,7 +56,7 @@ export default function JournalScreen() {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         {searching ? (
-          <View style={styles.searchBar}>
+          <Glass style={styles.searchBar}>
             <Ionicons name="search" size={17} color={colors.textFaint} />
             <TextInput
               autoFocus
@@ -75,7 +76,7 @@ export default function JournalScreen() {
             >
               <Text style={styles.cancel}>Zrušiť</Text>
             </Pressable>
-          </View>
+          </Glass>
         ) : (
           <View style={styles.titleRow}>
             <View>
@@ -86,14 +87,11 @@ export default function JournalScreen() {
             </View>
             <View style={styles.headerActions}>
               <StreakBadge days={streak.current} writtenToday={streak.writtenToday} />
-              <Pressable
+              <IconButton
+                name="search"
                 onPress={() => setSearching(true)}
-                hitSlop={8}
-                style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}
                 accessibilityLabel="Hľadať"
-              >
-                <Ionicons name="search" size={20} color={colors.text} />
-              </Pressable>
+              />
             </View>
           </View>
         )}
@@ -102,7 +100,7 @@ export default function JournalScreen() {
       <FlashList
         data={rows}
         keyExtractor={(entry) => entry.id}
-        contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: spacing.lg }}
+        contentContainerStyle={{ paddingBottom: 96, paddingHorizontal: spacing.lg }}
         keyboardDismissMode="on-drag"
         renderItem={({ item }) => (
           <View style={styles.cardWrap}>
@@ -142,10 +140,13 @@ export default function JournalScreen() {
         accessibilityLabel="Nový zápisok"
         style={({ pressed }) => [
           styles.fab,
+          { bottom: tabBarInset + spacing.lg },
           pressed && styles.fabPressed,
         ]}
       >
-        <Ionicons name="add" size={28} color={colors.accentText} />
+        <Glass interactive tint={colors.accent} style={styles.fabGlass}>
+          <Ionicons name="add" size={28} color={colors.accentText} />
+        </Glass>
       </Pressable>
     </View>
   );
@@ -159,23 +160,11 @@ const styles = StyleSheet.create({
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   title: { ...type.display, color: colors.text },
   subtitle: { ...type.caption, color: colors.textFaint, marginTop: 2 },
-  headerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  pressed: { opacity: 0.6 },
 
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.surfaceRaised,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.lg,
     height: 44,
@@ -188,16 +177,16 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: spacing.lg,
-    // The tab scene is already laid out above the tab bar, so this is measured
-    // from the bar's top edge — no need to add its height.
-    bottom: spacing.lg,
+    // `bottom` is set inline: on iOS the scene runs under the glass tab bar.
+    borderRadius: radius.pill,
+    ...shadow.float,
+  },
+  fabGlass: {
     width: 58,
     height: 58,
     borderRadius: radius.pill,
-    backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadow.float,
   },
   fabPressed: { opacity: 0.85, transform: [{ scale: 0.96 }] },
 });

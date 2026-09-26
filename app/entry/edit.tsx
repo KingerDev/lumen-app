@@ -17,14 +17,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { IconButton } from '@/components/ui';
+import { Glass, IconButton } from '@/components/ui';
 import { formatLongDate, formatTime, toLocalISO } from '@/lib/date';
 import { captureCurrentLocation, formatLocation } from '@/lib/location';
 import { capturePhoto, MediaPickError, mediaSource, pickMedia } from '@/lib/media';
 import { renderSections } from '@/lib/templates';
 import { useEditor } from '@/store/editor';
 import { useJournal } from '@/store/journal';
-import { colors, radius, shadow, spacing, type } from '@/theme';
+import { colors, radius, spacing, type } from '@/theme';
 
 /**
  * Write / edit an entry.
@@ -356,7 +356,7 @@ export default function EditEntryScreen() {
       </ScrollView>
 
       {/* Attachment bar */}
-      <View style={[styles.toolbar, { paddingBottom: insets.bottom || spacing.lg }]}>
+      <Glass style={[styles.toolbar, { paddingBottom: insets.bottom || spacing.lg }]}>
         <Pressable
           onPress={() => attach('library')}
           disabled={busy}
@@ -385,7 +385,7 @@ export default function EditEntryScreen() {
           <Text style={styles.toolLabel}>Obľúbené</Text>
         </Pressable>
         {busy ? <ActivityIndicator size="small" color={colors.textMuted} /> : null}
-      </View>
+      </Glass>
     </KeyboardAvoidingView>
   );
 }
@@ -513,10 +513,8 @@ const styles = StyleSheet.create({
     gap: spacing.xl,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.md,
-    backgroundColor: colors.surface,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
-    ...shadow.float,
   },
   tool: { alignItems: 'center', gap: 3 },
   toolLabel: { ...type.caption, color: colors.textFaint, fontSize: 10 },

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Glass, IconButton } from '@/components/ui';
 import { formatLongDate, formatTime, formatWeekday } from '@/lib/date';
 import { mediaSource } from '@/lib/media';
 import { formatLocation } from '@/lib/location';
@@ -102,35 +103,38 @@ export default function ViewerScreen() {
       />
 
       <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable
+        <IconButton
+          name="close"
+          tint="#fff"
           onPress={() => router.back()}
-          style={({ pressed }) => [styles.round, pressed && styles.pressed]}
           accessibilityLabel="Zavrieť"
-        >
-          <Ionicons name="close" size={20} color="#fff" />
-        </Pressable>
-        <Text style={styles.counter}>
-          {index + 1} / {slides.length}
-        </Text>
+        />
+        <Glass fallback={colors.scrimStrong} style={styles.counter}>
+          <Text style={styles.counterText}>
+            {index + 1} / {slides.length}
+          </Text>
+        </Glass>
       </View>
 
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + spacing.lg }]}>
-        <View style={styles.dateCard}>
+        <Glass fallback={colors.scrimStrong} style={styles.dateCard}>
           <Text style={styles.dateText}>{formatLongDate(current.date)}</Text>
           <Text style={styles.dateMeta}>
             {formatWeekday(current.date)} · {formatTime(current.date)}
             {current.place ? ` · ${current.place}` : ''}
           </Text>
-        </View>
+        </Glass>
 
         <Pressable
           onPress={() =>
             router.push({ pathname: '/entry/[id]', params: { id: current.entryId } })
           }
-          style={({ pressed }) => [styles.openButton, pressed && styles.pressed]}
+          style={({ pressed }) => pressed && styles.pressed}
         >
-          <Ionicons name="book-outline" size={16} color={colors.accentText} />
-          <Text style={styles.openLabel}>Otvoriť zápisok</Text>
+          <Glass interactive tint={colors.accent} style={styles.openButton}>
+            <Ionicons name="book-outline" size={16} color={colors.accentText} />
+            <Text style={styles.openLabel}>Otvoriť zápisok</Text>
+          </Glass>
         </Pressable>
       </View>
     </View>
@@ -170,23 +174,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
   },
-  round: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.pill,
-    backgroundColor: colors.scrimStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   counter: {
-    ...type.caption,
-    color: '#fff',
-    backgroundColor: colors.scrimStrong,
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
     borderRadius: radius.pill,
-    overflow: 'hidden',
   },
+  counterText: { ...type.caption, color: '#fff' },
 
   bottomBar: {
     position: 'absolute',
@@ -198,7 +191,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
   },
   dateCard: {
-    backgroundColor: colors.scrimStrong,
     borderRadius: radius.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
@@ -214,7 +206,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     height: 46,
     borderRadius: radius.pill,
-    backgroundColor: colors.accent,
   },
   openLabel: { ...type.small, fontWeight: '700', color: colors.accentText },
 });
