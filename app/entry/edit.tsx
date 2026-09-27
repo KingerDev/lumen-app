@@ -6,7 +6,8 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
+  Keyboard,
+  LayoutAnimation,
   Platform,
   Pressable,
   ScrollView,
@@ -58,12 +59,8 @@ export default function EditEntryScreen() {
   const [locating, setLocating] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  // KeyboardAvoidingView measures itself relative to its parent, not the
-  // screen, so inside an iOS sheet (which starts well below the top edge) it
-  // under-shoots by exactly the sheet's offset and the keyboard covers the
-  // toolbar. Feed that offset back in.
   const rootRef = useRef<View>(null);
-  const [sheetOffset, setSheetOffset] = useState(0);
+  const keyboardInset = useKeyboardInset(rootRef);
 
   const isEditing = Boolean(params.id);
 
@@ -211,14 +208,9 @@ export default function EditEntryScreen() {
   return (
     <View
       ref={rootRef}
-      style={styles.root}
-      onLayout={() => rootRef.current?.measureInWindow((_x, y) => setSheetOffset(y))}
+      style={[styles.root, { paddingBottom: keyboardInset }]}
     >
-      <KeyboardAvoidingView
-        style={styles.root}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={sheetOffset}
-      >
+      <View style={styles.root}>
         <View style={[styles.header, { paddingTop: topInset }]}>
           <IconButton name="close" onPress={close} accessibilityLabel="Zavrieť" />
           <View style={styles.headerCenter}>
@@ -370,7 +362,13 @@ export default function EditEntryScreen() {
         </ScrollView>
 
         {/* Attachment bar */}
-        <Glass style={[styles.toolbar, { paddingBottom: insets.bottom || spacing.lg }]}>
+        <Glass
+          style={[
+            styles.toolbar,
+            // With the keyboard up the home-indicator inset is under the keys.
+            { paddingBottom: keyboardInset ? spacing.md : insets.bottom || spacing.lg },
+          ]}
+        >
           <Pressable
             onPress={() => attach('library')}
             disabled={busy}
@@ -400,9 +398,53 @@ export default function EditEntryScreen() {
           </Pressable>
           {busy ? <ActivityIndicator size="small" color={colors.textMuted} /> : null}
         </Glass>
-      </KeyboardAvoidingView>
+      </View>
     </View>
   );
+}
+
+/**
+ * How much of `ref`'s view the iOS keyboard covers, to pad it away.
+ *
+ * Not KeyboardAvoidingView: it compares its parent-relative layout against the
+ * keyboard's screen position, so inside a sheet (which starts well below the
+ * top of the screen) it under-shoots and the toolbar stays under the keys.
+ * Measuring in window coordinates when the keyboard actually moves — by then
+ * the sheet has finished presenting — gives the real overlap.
+ */
+function useKeyboardInset(ref: React.RefObject<View | null>) {
+  const [inset, setInset] = useState(0);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+
+    const animate = (duration: number) =>
+      LayoutAnimation.configureNext({
+        duration: Math.max(duration, 10),
+        update: { duration: Math.max(duration, 10), type: 'keyboard' },
+      });
+
+    const show = Keyboard.addListener('keyboardWillChangeFrame', (event) => {
+      const keyboardTop = event.endCoordinates.screenY;
+      // The padding sits inside the view, so its measured bottom edge does
+      // not move with it — the overlap is simply bottom minus keyboard top.
+      ref.current?.measureInWindow((_x, y, _width, height) => {
+        animate(event.duration);
+        setInset(Math.max(0, y + height - keyboardTop));
+      });
+    });
+    const hide = Keyboard.addListener('keyboardWillHide', (event) => {
+      animate(event.duration);
+      setInset(0);
+    });
+
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [ref]);
+
+  return inset;
 }
 
 const styles = StyleSheet.create({
