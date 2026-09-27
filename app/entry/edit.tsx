@@ -2,10 +2,11 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   Keyboard,
   LayoutAnimation,
   Platform,
@@ -59,8 +60,7 @@ export default function EditEntryScreen() {
   const [locating, setLocating] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const rootRef = useRef<View>(null);
-  const keyboardInset = useKeyboardInset(rootRef);
+  const keyboardInset = useKeyboardInset();
 
   const isEditing = Boolean(params.id);
 
@@ -206,10 +206,7 @@ export default function EditEntryScreen() {
   };
 
   return (
-    <View
-      ref={rootRef}
-      style={[styles.root, { paddingBottom: keyboardInset }]}
-    >
+    <View style={[styles.root, { paddingBottom: keyboardInset }]}>
       <View style={styles.root}>
         <View style={[styles.header, { paddingTop: topInset }]}>
           <IconButton name="close" onPress={close} accessibilityLabel="Zavrieť" />
@@ -404,15 +401,15 @@ export default function EditEntryScreen() {
 }
 
 /**
- * How much of `ref`'s view the iOS keyboard covers, to pad it away.
+ * How much of the screen's bottom the iOS keyboard covers, to pad it away.
  *
- * Not KeyboardAvoidingView: it compares its parent-relative layout against the
- * keyboard's screen position, so inside a sheet (which starts well below the
- * top of the screen) it under-shoots and the toolbar stays under the keys.
- * Measuring in window coordinates when the keyboard actually moves — by then
- * the sheet has finished presenting — gives the real overlap.
+ * Not KeyboardAvoidingView, and not measureInWindow either: under Fabric both
+ * see a modal sheet at y = 0, although iOS draws it well below the top of the
+ * screen, so they under-shoot by that offset and the toolbar stays under the
+ * keys. The sheet is always anchored to the bottom edge of the screen, though,
+ * so the overlap is just the distance from the keyboard's top to that edge.
  */
-function useKeyboardInset(ref: React.RefObject<View | null>) {
+function useKeyboardInset() {
   const [inset, setInset] = useState(0);
 
   useEffect(() => {
@@ -424,14 +421,9 @@ function useKeyboardInset(ref: React.RefObject<View | null>) {
         update: { duration: Math.max(duration, 10), type: 'keyboard' },
       });
 
-    const show = Keyboard.addListener('keyboardWillChangeFrame', (event) => {
-      const keyboardTop = event.endCoordinates.screenY;
-      // The padding sits inside the view, so its measured bottom edge does
-      // not move with it — the overlap is simply bottom minus keyboard top.
-      ref.current?.measureInWindow((_x, y, _width, height) => {
-        animate(event.duration);
-        setInset(Math.max(0, y + height - keyboardTop));
-      });
+    const change = Keyboard.addListener('keyboardWillChangeFrame', (event) => {
+      animate(event.duration);
+      setInset(Math.max(0, Dimensions.get('screen').height - event.endCoordinates.screenY));
     });
     const hide = Keyboard.addListener('keyboardWillHide', (event) => {
       animate(event.duration);
@@ -439,10 +431,10 @@ function useKeyboardInset(ref: React.RefObject<View | null>) {
     });
 
     return () => {
-      show.remove();
+      change.remove();
       hide.remove();
     };
-  }, [ref]);
+  }, []);
 
   return inset;
 }
