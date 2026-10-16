@@ -3,7 +3,8 @@ import { Image } from 'expo-image';
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { formatRailDate, formatTime, formatWeekdayShort } from '@/lib/date';
+import { formatLongDate, formatRailDate, formatTime, formatWeekdayShort } from '@/lib/date';
+import { t } from '@/lib/i18n';
 import { mediaSource } from '@/lib/media';
 import { formatLocation } from '@/lib/location';
 import { previewText, previewTitle } from '@/lib/templates';
@@ -27,10 +28,19 @@ function EntryCardBase({ entry, onPress }: { entry: Entry; onPress: () => void }
       onPress={onPress}
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
       accessibilityRole="button"
-      accessibilityLabel={`Zápisok ${title ?? preview.slice(0, 40)}`}
+      accessibilityLabel={[
+        `${formatLongDate(entry.date)}, ${formatTime(entry.date)}`,
+        title ?? preview.slice(0, 80),
+        place,
+        entry.starred ? t.journal.starredA11y : null,
+      ]
+        .filter(Boolean)
+        .join('. ')}
     >
       <View style={styles.rail}>
-        <Text style={styles.day}>{rail.day}</Text>
+        <Text style={styles.day} maxFontSizeMultiplier={1.4}>
+          {rail.day}
+        </Text>
         <Text style={styles.month}>{rail.month}</Text>
       </View>
 
@@ -47,7 +57,7 @@ function EntryCardBase({ entry, onPress }: { entry: Entry; onPress: () => void }
         </View>
 
         <Text style={styles.preview} numberOfLines={title ? 2 : 3}>
-          {preview || 'Prázdny zápisok'}
+          {preview || t.common.emptyEntry}
         </Text>
 
         <View style={styles.meta}>
@@ -79,7 +89,9 @@ function EntryCardBase({ entry, onPress }: { entry: Entry; onPress: () => void }
           ) : null}
           {extra > 0 ? (
             <View style={styles.countBadge}>
-              <Text style={styles.countText}>+{extra}</Text>
+              <Text style={styles.countText} maxFontSizeMultiplier={1.4}>
+                +{extra}
+              </Text>
             </View>
           ) : null}
         </View>

@@ -2,13 +2,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState } from '@/components/ui';
 import { dayKey, formatLongDate, formatMonth, formatWeekday, monthKey } from '@/lib/date';
+import { t } from '@/lib/i18n';
 import { mediaSource } from '@/lib/media';
+import { ensureThumbnail, isThumbnailReady, thumbnailSource } from '@/lib/thumbnail';
 import { useJournal } from '@/store/journal';
 import { colors, radius, spacing, type } from '@/theme';
 import type { Entry, Media } from '@/types';
@@ -123,8 +125,10 @@ export default function GalleryScreen() {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Galéria</Text>
-          <Text style={styles.subtitle}>{shots.length} fotiek a videí</Text>
+          <Text style={styles.title} accessibilityRole="header">
+            {t.gallery.title}
+          </Text>
+          <Text style={styles.subtitle}>{t.gallery.count(shots.length)}</Text>
         </View>
 
         <View style={styles.segmented}>
@@ -132,12 +136,14 @@ export default function GalleryScreen() {
             <Pressable
               key={option}
               onPress={() => setGrouping(option)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: grouping === option }}
               style={[styles.segment, grouping === option && styles.segmentActive]}
             >
               <Text
                 style={[styles.segmentLabel, grouping === option && styles.segmentLabelActive]}
               >
-                {option === 'day' ? 'Dni' : 'Mesiace'}
+                {option === 'day' ? t.gallery.days : t.gallery.months}
               </Text>
             </Pressable>
           ))}
@@ -189,8 +195,8 @@ export default function GalleryScreen() {
         ListEmptyComponent={
           <EmptyState
             icon="images-outline"
-            title="Žiadne fotky"
-            message="Keď k zápisku priradíš fotku, objaví sa tu — zoradená podľa dňa, presne ako v galérii telefónu."
+            title={t.gallery.emptyTitle}
+            message={t.gallery.empty}
           />
         }
       />
@@ -210,28 +216,57 @@ function Tile({
   onPress: () => void;
 }) {
   const day = new Date(shot.date).getDate();
+  const { media } = shot;
+
+  // FlashList recycles tiles, so the state remembers *which* photo it resolved
+  // for — a recycled tile must not show the previous photo's answer.
+  const [resolved, setResolved] = useState<{ id: string; thumb: boolean } | null>(null);
+  const known = isThumbnailReady(media)
+    ? true
+    : resolved?.id === media.id
+      ? resolved.thumb
+      : null;
+
+  useEffect(() => {
+    if (isThumbnailReady(media)) return;
+    let alive = true;
+    void ensureThumbnail(media).then((thumb) => {
+      if (alive) setResolved({ id: media.id, thumb });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [media]);
+
+  // Until the thumbnail question is answered the tile stays an empty square;
+  // decoding the original meanwhile is exactly the cost being avoided.
+  const source = known === null ? null : known ? thumbnailSource(media) : mediaSource(media);
 
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [{ width: size, height: size }, styles.tile, pressed && styles.tilePressed]}
       accessibilityRole="imagebutton"
-      accessibilityLabel={`Fotka z ${formatLongDate(shot.date)}`}
+      accessibilityLabel={(media.kind === 'video' ? t.gallery.videoA11y : t.gallery.photoA11y)(
+        formatLongDate(shot.date)
+      )}
     >
       <Image
-        source={mediaSource(shot.media)}
+        source={source}
         style={StyleSheet.absoluteFill}
         contentFit="cover"
         transition={120}
         cachePolicy="memory-disk"
-        recyclingKey={shot.media.id}
+        recyclingKey={media.id}
       />
       {showDate ? (
         <View style={styles.dayBadge}>
-          <Text style={styles.dayBadgeText}>{day}</Text>
+          <Text style={styles.dayBadgeText} maxFontSizeMultiplier={1.4}>
+            {day}
+          </Text>
         </View>
       ) : null}
-      {shot.media.kind === 'video' ? (
+      {media.kind === 'video' ? (
         <View style={styles.videoBadge}>
           <Ionicons name="play" size={10} color="#fff" />
         </View>
@@ -262,7 +297,7 @@ function TextTile({
         pressed && styles.tilePressed,
       ]}
       accessibilityRole="button"
-      accessibilityLabel={`Zápisok bez fotky z ${formatLongDate(date)}`}
+      accessibilityLabel={t.gallery.textTileA11y(formatLongDate(date))}
     >
       <Ionicons
         name="document-text-outline"
@@ -298,7 +333,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     padding: 3,
   },
-  segment: { paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.pill },
+  segment: {
+    minHeight: 34,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+  },
   segmentActive: { backgroundColor: colors.accent },
   segmentLabel: { ...type.caption, color: colors.textMuted },
   segmentLabelActive: { color: colors.accentText, fontWeight: '700' },
@@ -338,7 +379,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.scrimStrong,
     alignItems: 'center',
   },
-  dayBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  dayBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
 
   videoBadge: {
     position: 'absolute',

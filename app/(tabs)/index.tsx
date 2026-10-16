@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EntryCard } from '@/components/EntryCard';
 import { StreakBadge } from '@/components/StreakBadge';
 import { Button, EmptyState, Glass, IconButton, useTabBarInset } from '@/components/ui';
-import { plural } from '@/lib/plural';
+import { t } from '@/lib/i18n';
 import { computeStreak } from '@/lib/streak';
 import { useJournal } from '@/store/journal';
 import { colors, radius, shadow, spacing, type } from '@/theme';
@@ -62,7 +62,7 @@ export default function JournalScreen() {
               autoFocus
               value={query}
               onChangeText={setQuery}
-              placeholder="Hľadať v zápiskoch…"
+              placeholder={t.journal.searchPlaceholder}
               placeholderTextColor={colors.textFaint}
               style={styles.searchInput}
               returnKeyType="search"
@@ -73,16 +73,19 @@ export default function JournalScreen() {
                 setSearching(false);
               }}
               hitSlop={8}
+              accessibilityRole="button"
             >
-              <Text style={styles.cancel}>Zrušiť</Text>
+              <Text style={styles.cancel}>{t.common.cancel}</Text>
             </Pressable>
           </Glass>
         ) : (
           <View style={styles.titleRow}>
             <View>
-              <Text style={styles.title}>Denník</Text>
+              <Text style={styles.title} accessibilityRole="header">
+                {t.journal.title}
+              </Text>
               <Text style={styles.subtitle}>
-                {entries.length} {plural(entries.length, 'zápisok', 'zápisky', 'zápiskov')}
+                {t.journal.count(entries.length)}
               </Text>
             </View>
             <View style={styles.headerActions}>
@@ -90,7 +93,7 @@ export default function JournalScreen() {
               <IconButton
                 name="search"
                 onPress={() => setSearching(true)}
-                accessibilityLabel="Hľadať"
+                accessibilityLabel={t.journal.search}
               />
             </View>
           </View>
@@ -114,17 +117,17 @@ export default function JournalScreen() {
           hasEntries ? (
             <EmptyState
               icon="search-outline"
-              title="Nič sa nenašlo"
-              message={`Pre „${query.trim()}" nemáme žiadny zápisok. Skús iné slovo.`}
+              title={t.journal.noResultsTitle}
+              message={t.journal.noResults(query.trim())}
             />
           ) : (
             <EmptyState
               icon="book-outline"
-              title="Zatiaľ prázdno"
-              message="Napíš prvý zápisok. Lumen si k nemu automaticky uloží dátum aj miesto."
+              title={t.journal.emptyTitle}
+              message={t.journal.empty}
               action={
                 <Button
-                  label="Nový zápisok"
+                  label={t.journal.newEntry}
                   icon="add"
                   onPress={() => router.push('/entry/template-picker')}
                 />
@@ -137,7 +140,7 @@ export default function JournalScreen() {
       <Pressable
         onPress={() => router.push('/entry/template-picker')}
         accessibilityRole="button"
-        accessibilityLabel="Nový zápisok"
+        accessibilityLabel={t.journal.newEntry}
         style={({ pressed }) => [
           styles.fab,
           { bottom: tabBarInset + spacing.lg },
@@ -167,7 +170,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.lg,
-    height: 44,
+    minHeight: 44,
   },
   searchInput: { flex: 1, ...type.body, color: colors.text, paddingVertical: 0 },
   cancel: { ...type.small, color: colors.accent },

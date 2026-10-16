@@ -41,3 +41,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# App Store screenshots (generated, large)
+appstore/screenshots/

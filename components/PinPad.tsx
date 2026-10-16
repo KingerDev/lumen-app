@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { StyleSheet, Text, View } from 'react-native';
-import { Pressable } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { t } from '@/lib/i18n';
 import { PIN_LENGTH } from '@/store/lock';
 import { colors, radius, spacing, type } from '@/theme';
 
@@ -10,7 +10,11 @@ import { colors, radius, spacing, type } from '@/theme';
 
 export function PinDots({ filled, error }: { filled: number; error?: boolean }) {
   return (
-    <View style={styles.dots}>
+    <View
+      style={styles.dots}
+      accessible
+      accessibilityLabel={t.pin.dotsA11y(filled, PIN_LENGTH)}
+    >
       {Array.from({ length: PIN_LENGTH }).map((_, index) => (
         <View
           key={index}
@@ -56,7 +60,7 @@ export function PinPad({
             key={key}
             onPress={() => press(key)}
             accessibilityRole="button"
-            accessibilityLabel={isBio ? 'Odomknúť biometriou' : key === 'del' ? 'Zmazať' : key}
+            accessibilityLabel={isBio ? t.pin.biometrics : key === 'del' ? t.pin.deleteDigit : key}
             style={({ pressed }) => [
               styles.key,
               !isBio && key !== 'del' && styles.keyFilled,

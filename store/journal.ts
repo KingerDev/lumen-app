@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import { nowISO } from '@/lib/date';
+import { t } from '@/lib/i18n';
 import { uid } from '@/lib/id';
 import { deleteMediaFile } from '@/lib/media';
 import { ApiError } from '@/lib/api';
@@ -168,7 +169,7 @@ export const useJournal = create<JournalState>((set, get) => {
         }
 
         const message =
-          err instanceof ApiError ? err.message : 'Synchronizácia zlyhala.';
+          err instanceof ApiError ? err.message : t.errors.syncFailed;
 
         console.warn('[lumen] sync failed', err);
         set({ syncing: false, syncError: message });

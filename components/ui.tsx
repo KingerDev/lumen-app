@@ -135,6 +135,7 @@ export function IconButton({
   tint = colors.text,
   background,
   accessibilityLabel,
+  selected,
 }: {
   name: keyof typeof Ionicons.glyphMap;
   onPress?: () => void;
@@ -143,11 +144,14 @@ export function IconButton({
   /** tints the glass (solid colour where glass is unavailable) */
   background?: string;
   accessibilityLabel?: string;
+  /** for toggles such as a favourite star */
+  selected?: boolean;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityState={selected === undefined ? undefined : { selected }}
       onPress={onPress}
       hitSlop={8}
       style={({ pressed }) => ({ opacity: pressed && !liquidGlass ? 0.6 : 1 })}
@@ -202,7 +206,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    height: 48,
+    minHeight: 48,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.xl,
     borderRadius: radius.pill,
   },

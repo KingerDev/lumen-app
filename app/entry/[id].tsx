@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/ui';
 import { formatLongDate, formatTime, formatWeekday } from '@/lib/date';
+import { t } from '@/lib/i18n';
 import { mediaSource } from '@/lib/media';
 import { formatLocation } from '@/lib/location';
 import { useJournal } from '@/store/journal';
@@ -26,7 +27,7 @@ export default function EntryDetailScreen() {
   if (!entry) {
     return (
       <View style={[styles.root, styles.center]}>
-        <Text style={styles.missing}>Zápisok sa nenašiel.</Text>
+        <Text style={styles.missing}>{t.entry.notFound}</Text>
       </View>
     );
   }
@@ -35,10 +36,10 @@ export default function EntryDetailScreen() {
   const heroWidth = width - spacing.lg * 2;
 
   const confirmDelete = () => {
-    Alert.alert('Zmazať zápisok?', 'Zmažú sa aj priradené fotky. Táto akcia sa nedá vrátiť.', [
-      { text: 'Zrušiť', style: 'cancel' },
+    Alert.alert(t.entry.deleteTitle, t.entry.deleteMessage, [
+      { text: t.common.cancel, style: 'cancel' },
       {
-        text: 'Zmazať',
+        text: t.common.delete,
         style: 'destructive',
         onPress: () => {
           deleteEntry(entry.id);
@@ -51,24 +52,25 @@ export default function EntryDetailScreen() {
   return (
     <View style={styles.root}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <IconButton name="chevron-back" onPress={() => router.back()} accessibilityLabel="Späť" />
+        <IconButton name="chevron-back" onPress={() => router.back()} accessibilityLabel={t.common.back} />
         <View style={styles.headerActions}>
           <IconButton
             name={entry.starred ? 'star' : 'star-outline'}
             tint={entry.starred ? colors.accent : colors.text}
             onPress={() => updateEntry(entry.id, { starred: !entry.starred })}
-            accessibilityLabel="Obľúbené"
+            accessibilityLabel={entry.starred ? t.entry.removeFavorite : t.entry.addFavorite}
+            selected={entry.starred}
           />
           <IconButton
             name="create-outline"
             onPress={() => router.push({ pathname: '/entry/edit', params: { id: entry.id } })}
-            accessibilityLabel="Upraviť"
+            accessibilityLabel={t.entry.edit}
           />
           <IconButton
             name="trash-outline"
             tint={colors.danger}
             onPress={confirmDelete}
-            accessibilityLabel="Zmazať"
+            accessibilityLabel={t.common.delete}
           />
         </View>
       </View>
@@ -95,6 +97,7 @@ export default function EntryDetailScreen() {
         {place ? (
           <Pressable
             onPress={() => router.push('/map')}
+            accessibilityRole="link"
             style={({ pressed }) => [styles.placeRow, pressed && styles.pressed]}
           >
             <Ionicons name="location" size={14} color={colors.accent} />
@@ -123,6 +126,8 @@ export default function EntryDetailScreen() {
                     params: { entryId: entry.id, mediaId: media.id, scope: 'entry' },
                   })
                 }
+                accessibilityRole="imagebutton"
+                accessibilityLabel={media.kind === 'video' ? t.entry.video : t.entry.photo}
                 style={[
                   styles.hero,
                   { width: entry.media.length > 1 ? heroWidth * 0.86 : heroWidth },
@@ -158,7 +163,7 @@ export default function EntryDetailScreen() {
               ))}
           </View>
         ) : (
-          <Text style={styles.freeText}>{entry.text || 'Prázdny zápisok'}</Text>
+          <Text style={styles.freeText}>{entry.text || t.common.emptyEntry}</Text>
         )}
 
         {/* Mini map */}
@@ -220,7 +225,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginTop: spacing.xs,
   },
-  meta: { ...type.small, color: colors.textMuted, textTransform: 'lowercase' },
+  meta: { ...type.small, color: colors.textMuted },
   templateChip: {
     paddingHorizontal: spacing.md,
     paddingVertical: 4,

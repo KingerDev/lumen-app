@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PinDots, PinPad } from '@/components/PinPad';
+import { t } from '@/lib/i18n';
 import { useJournal } from '@/store/journal';
 import { PIN_LENGTH, useLock } from '@/store/lock';
 import { colors, radius, spacing, type } from '@/theme';
@@ -47,6 +48,7 @@ export function LockScreen() {
         unlock();
       } else {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        AccessibilityInfo.announceForAccessibility(t.pin.wrong);
         setError(true);
         setTimeout(() => {
           setPin('');
@@ -72,7 +74,7 @@ export function LockScreen() {
         </View>
         <Text style={styles.name}>Lumen</Text>
         <Text style={styles.hint}>
-          {error ? 'Nesprávny PIN' : 'Zadaj PIN pre prístup k denníku'}
+          {error ? t.pin.wrong : t.pin.enter}
         </Text>
         <View style={styles.dotsWrap}>
           <PinDots filled={pin.length} error={error} />

@@ -10,12 +10,15 @@ import {
   StyleSheet,
   Switch,
   Text,
+  Linking,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ApiError } from '@/lib/api';
+import { legalUrl } from '@/lib/config';
 import { formatDateTime } from '@/lib/date';
-import { plural } from '@/lib/plural';
+import { lang, t } from '@/lib/i18n';
 import { repo } from '@/lib/storage';
 import { computeStreak, type Streak } from '@/lib/streak';
 import { useAuth } from '@/store/auth';
@@ -39,6 +42,8 @@ export default function SettingsScreen() {
 
   const user = useAuth((s) => s.user);
   const logout = useAuth((s) => s.logout);
+  const deleteAccount = useAuth((s) => s.deleteAccount);
+  const [deleting, setDeleting] = useState(false);
 
   const hasPin = useLock((s) => s.hasPin);
   const removePin = useLock((s) => s.removePin);
@@ -55,14 +60,12 @@ export default function SettingsScreen() {
     const pending = entries.filter((entry) => entry.dirty).length;
 
     Alert.alert(
-      'Odhlásiť sa?',
-      pending
-        ? `${pending} zápiskov ešte nie je odoslaných na server. Odhlásením o ne prídeš.`
-        : 'Zápisky zostanú na serveri, z tohto zariadenia sa zmažú.',
+      t.settings.logoutTitle,
+      pending ? t.settings.logoutPending(pending) : t.settings.logoutMessage,
       [
-        { text: 'Zrušiť', style: 'cancel' },
+        { text: t.common.cancel, style: 'cancel' },
         {
-          text: 'Odhlásiť',
+          text: t.settings.logoutConfirm,
           style: 'destructive',
           onPress: async () => {
             await logout();
@@ -74,6 +77,32 @@ export default function SettingsScreen() {
     );
   };
 
+  const confirmDeleteAccount = () => {
+    Alert.alert(t.settings.deleteAccountTitle, t.settings.deleteAccountMessage, [
+      { text: t.common.cancel, style: 'cancel' },
+      {
+        text: t.settings.deleteAccountConfirm,
+        style: 'destructive',
+        onPress: async () => {
+          setDeleting(true);
+          try {
+            await deleteAccount();
+            // The server copy is gone; a local one would be an orphan.
+            await repo.wipe();
+            await useJournal.getState().hydrate();
+          } catch (err) {
+            Alert.alert(
+              t.settings.deleteAccountFailed,
+              err instanceof ApiError ? err.message : t.errors.unreachable
+            );
+          } finally {
+            setDeleting(false);
+          }
+        },
+      },
+    ]);
+  };
+
   const streak = useMemo(() => computeStreak(entries), [entries]);
 
   const mediaCount = entries.reduce((sum, entry) => sum + entry.media.length, 0);
@@ -81,10 +110,10 @@ export default function SettingsScreen() {
 
   const togglePin = () => {
     if (hasPin) {
-      Alert.alert('Vypnúť PIN?', 'Denník sa bude otvárať bez zámku.', [
-        { text: 'Zrušiť', style: 'cancel' },
+      Alert.alert(t.settings.pinOffTitle, t.settings.pinOffMessage, [
+        { text: t.common.cancel, style: 'cancel' },
         {
-          text: 'Vypnúť',
+          text: t.settings.turnOff,
           style: 'destructive',
           onPress: async () => {
             await removePin();
@@ -99,12 +128,12 @@ export default function SettingsScreen() {
 
   const confirmWipe = () => {
     Alert.alert(
-      'Zmazať všetky dáta?',
-      'Zmažú sa všetky zápisky, šablóny a nastavenia z tohto zariadenia. Nedá sa to vrátiť.',
+      t.settings.wipeTitle,
+      t.settings.wipeMessage,
       [
-        { text: 'Zrušiť', style: 'cancel' },
+        { text: t.common.cancel, style: 'cancel' },
         {
-          text: 'Zmazať všetko',
+          text: t.settings.wipeConfirm,
           style: 'destructive',
           onPress: async () => {
             await repo.wipe();
@@ -127,33 +156,43 @@ export default function SettingsScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>Nastavenia</Text>
+        <Text style={styles.title} accessibilityRole="header">
+          {t.settings.title}
+        </Text>
 
         <View style={styles.stats}>
-          <Stat value={entries.length} label="zápiskov" />
-          <Stat value={mediaCount} label="fotiek" />
-          <Stat value={locatedCount} label="s miestom" />
+          <Stat value={entries.length} label={t.settings.statEntries(entries.length)} />
+          <Stat value={mediaCount} label={t.settings.statPhotos(mediaCount)} />
+          <Stat value={locatedCount} label={t.settings.statLocated} />
         </View>
 
-        <Group label="Zabezpečenie">
+        <Group label={t.settings.security}>
           <Row
             icon="lock-closed-outline"
-            title="PIN kód"
-            subtitle={hasPin ? 'Zapnutý — vyžaduje sa pri otvorení' : 'Vypnutý'}
-            right={<Switch value={hasPin} onValueChange={togglePin} {...switchColors} />}
+            title={t.settings.pin}
+            subtitle={hasPin ? t.settings.pinOn : t.settings.pinOff}
+            right={
+              <Switch
+                value={hasPin}
+                onValueChange={togglePin}
+                accessibilityLabel={t.settings.pin}
+                {...switchColors}
+              />
+            }
           />
           {hasPin ? (
             <>
               <Row
                 icon="finger-print-outline"
-                title="Face ID / odtlačok"
+                title={t.settings.biometrics}
                 subtitle={
-                  bioAvailable ? 'Rýchle odomknutie namiesto PIN-u' : 'Na tomto zariadení nedostupné'
+                  bioAvailable ? t.settings.biometricsOn : t.settings.biometricsUnavailable
                 }
                 right={
                   <Switch
                     value={settings.biometricsEnabled}
                     disabled={!bioAvailable}
+                    accessibilityLabel={t.settings.biometrics}
                     onValueChange={(value) => updateSettings({ biometricsEnabled: value })}
                     {...switchColors}
                   />
@@ -161,35 +200,35 @@ export default function SettingsScreen() {
               />
               <Row
                 icon="timer-outline"
-                title="Zamknúť po"
-                subtitle={`${settings.lockAfterSeconds} s na pozadí`}
+                title={t.settings.lockAfter}
+                subtitle={t.settings.lockAfterValue(settings.lockAfterSeconds)}
                 onPress={() =>
                   updateSettings({
                     lockAfterSeconds: nextGrace(settings.lockAfterSeconds),
                   })
                 }
-                right={<Ionicons name="chevron-forward" size={16} color={colors.textFaint} />}
+                right={<Ionicons name="chevron-forward" size={16} color={colors.decorative} />}
               />
               <Row
                 icon="lock-open-outline"
-                title="Zmeniť PIN"
+                title={t.settings.changePin}
                 onPress={() => router.push('/settings/pin')}
-                right={<Ionicons name="chevron-forward" size={16} color={colors.textFaint} />}
+                right={<Ionicons name="chevron-forward" size={16} color={colors.decorative} />}
               />
               <Row
                 icon="power-outline"
-                title="Zamknúť teraz"
+                title={t.settings.lockNow}
                 onPress={lock}
-                right={<Ionicons name="chevron-forward" size={16} color={colors.textFaint} />}
+                right={<Ionicons name="chevron-forward" size={16} color={colors.decorative} />}
               />
             </>
           ) : null}
         </Group>
 
-        <Group label="Zápisky">
+        <Group label={t.settings.entries}>
           <Row
             icon="flame-outline"
-            title="Séria"
+            title={t.settings.streak}
             subtitle={streakSubtitle(streak)}
             right={
               <Text style={[styles.streakValue, streak.current === 0 && styles.streakValueOff]}>
@@ -199,11 +238,12 @@ export default function SettingsScreen() {
           />
           <Row
             icon="navigate-outline"
-            title="Automatická poloha"
-            subtitle="Pri novom zápisku sa uloží aktuálne miesto"
+            title={t.settings.autoLocation}
+            subtitle={t.settings.autoLocationHint}
             right={
               <Switch
                 value={settings.autoLocation}
+                accessibilityLabel={t.settings.autoLocation}
                 onValueChange={(value) => updateSettings({ autoLocation: value })}
                 {...switchColors}
               />
@@ -211,29 +251,29 @@ export default function SettingsScreen() {
           />
           <Row
             icon="swap-vertical-outline"
-            title="Zoradenie"
-            subtitle={settings.sortOrder === 'newest' ? 'Najnovšie hore' : 'Najstaršie hore'}
+            title={t.settings.sort}
+            subtitle={settings.sortOrder === 'newest' ? t.settings.newest : t.settings.oldest}
             onPress={() =>
               updateSettings({ sortOrder: settings.sortOrder === 'newest' ? 'oldest' : 'newest' })
             }
-            right={<Ionicons name="chevron-forward" size={16} color={colors.textFaint} />}
+            right={<Ionicons name="chevron-forward" size={16} color={colors.decorative} />}
           />
           <Row
             icon="documents-outline"
-            title="Šablóny"
-            subtitle={`${templates.length} šablón`}
+            title={t.settings.templates}
+            subtitle={t.settings.templateCount(templates.length)}
             onPress={() => router.push('/templates')}
-            right={<Ionicons name="chevron-forward" size={16} color={colors.textFaint} />}
+            right={<Ionicons name="chevron-forward" size={16} color={colors.decorative} />}
           />
         </Group>
 
-        <Group label="Dáta">
+        <Group label={t.settings.data}>
           <Row
             icon={syncError ? 'cloud-offline-outline' : 'cloud-done-outline'}
-            title="Synchronizácia"
+            title={t.settings.sync}
             subtitle={
               syncError ??
-              (lastSyncAt ? `Naposledy ${formatDateTime(lastSyncAt)}` : 'Zatiaľ neprebehla')
+              (lastSyncAt ? t.settings.lastSync(formatDateTime(lastSyncAt)) : t.settings.neverSynced)
             }
             danger={Boolean(syncError)}
             onPress={() => void sync()}
@@ -247,17 +287,49 @@ export default function SettingsScreen() {
           />
           <Row
             icon="person-outline"
-            title="Účet"
-            subtitle={user?.email ?? 'Neprihlásený'}
+            title={t.settings.account}
+            subtitle={
+              user?.email ?? (user?.apple ? t.settings.appleAccount : t.settings.signedOut)
+            }
             onPress={confirmLogout}
-            right={<Text style={styles.soon}>odhlásiť</Text>}
+            right={<Text style={styles.soon}>{t.settings.logout}</Text>}
           />
           <Row
             icon="trash-outline"
-            title="Zmazať všetky dáta"
+            title={t.settings.wipe}
             danger
             onPress={confirmWipe}
             right={<Ionicons name="chevron-forward" size={16} color={colors.danger} />}
+          />
+          {user ? (
+            <Row
+              icon="person-remove-outline"
+              title={t.settings.deleteAccount}
+              danger
+              onPress={deleting ? undefined : confirmDeleteAccount}
+              right={
+                deleting ? (
+                  <ActivityIndicator size="small" color={colors.danger} />
+                ) : (
+                  <Ionicons name="chevron-forward" size={16} color={colors.danger} />
+                )
+              }
+            />
+          ) : null}
+        </Group>
+
+        <Group label={t.settings.about}>
+          <Row
+            icon="shield-checkmark-outline"
+            title={t.settings.privacy}
+            onPress={() => void Linking.openURL(legalUrl('privacy', lang))}
+            right={<Ionicons name="open-outline" size={16} color={colors.decorative} />}
+          />
+          <Row
+            icon="help-circle-outline"
+            title={t.settings.support}
+            onPress={() => void Linking.openURL(legalUrl('support', lang))}
+            right={<Ionicons name="open-outline" size={16} color={colors.decorative} />}
           />
         </Group>
 
@@ -274,17 +346,15 @@ export default function SettingsScreen() {
  * same number twice on one line reads like a bug.
  */
 function streakSubtitle(streak: Streak): string {
-  const days = (count: number) => `${count} ${plural(count, 'deň', 'dni', 'dní')}`;
-
   if (streak.current > 0) {
     return streak.current >= streak.longest
-      ? `${days(streak.current)} v rade — zatiaľ najviac`
-      : `${days(streak.current)} v rade · rekord ${days(streak.longest)}`;
+      ? t.settings.streakBest(streak.current)
+      : t.settings.streakCurrent(streak.current, streak.longest);
   }
 
-  if (streak.totalDays === 0) return 'Zatiaľ žiadna — napíš prvý zápisok';
+  if (streak.totalDays === 0) return t.settings.streakNone;
 
-  return `Pretrhnutá · rekord ${days(streak.longest)}`;
+  return t.settings.streakBroken(streak.longest);
 }
 
 /** Cycles the background grace period through sensible values. */
@@ -346,7 +416,11 @@ function Row({
 
   if (!onPress) return content;
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => pressed && { opacity: 0.6 }}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => pressed && { opacity: 0.6 }}
+    >
       {content}
     </Pressable>
   );
@@ -399,7 +473,7 @@ const styles = StyleSheet.create({
   },
   rowBody: { flex: 1, gap: 1 },
   rowTitle: { ...type.small, color: colors.text },
-  rowSubtitle: { ...type.caption, color: colors.textFaint, fontSize: 11 },
+  rowSubtitle: { ...type.caption, color: colors.textFaint },
 
   streakValue: { ...type.title, color: colors.accent },
   streakValueOff: { color: colors.textFaint },

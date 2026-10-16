@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Glass, IconButton } from '@/components/ui';
 import { formatLongDate, formatTime, formatWeekday } from '@/lib/date';
+import { t } from '@/lib/i18n';
 import { mediaSource } from '@/lib/media';
 import { formatLocation } from '@/lib/location';
 import { useJournal } from '@/store/journal';
@@ -66,7 +67,7 @@ export default function ViewerScreen() {
   if (!current) {
     return (
       <View style={[styles.root, styles.center]}>
-        <Text style={styles.missing}>Fotka sa nenašla.</Text>
+        <Text style={styles.missing}>{t.viewer.notFound}</Text>
       </View>
     );
   }
@@ -107,7 +108,7 @@ export default function ViewerScreen() {
           name="close"
           tint="#fff"
           onPress={() => router.back()}
-          accessibilityLabel="Zavrieť"
+          accessibilityLabel={t.common.close}
         />
         <Glass fallback={colors.scrimStrong} style={styles.counter}>
           <Text style={styles.counterText}>
@@ -133,7 +134,7 @@ export default function ViewerScreen() {
         >
           <Glass interactive tint={colors.accent} style={styles.openButton}>
             <Ionicons name="book-outline" size={16} color={colors.accentText} />
-            <Text style={styles.openLabel}>Otvoriť zápisok</Text>
+            <Text style={styles.openLabel}>{t.viewer.openEntry}</Text>
           </Glass>
         </Pressable>
       </View>
@@ -204,7 +205,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    height: 46,
+    minHeight: 46,
     borderRadius: radius.pill,
   },
   openLabel: { ...type.small, fontWeight: '700', color: colors.accentText },

@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EntryCard } from '@/components/EntryCard';
 import { boundsOf, clusterEntries, type Cluster } from '@/components/MapCluster';
 import { EmptyState, Glass, IconButton, useTabBarInset } from '@/components/ui';
+import { t } from '@/lib/i18n';
 import { useJournal } from '@/store/journal';
 import { colors, mapDarkStyle, radius, shadow, spacing, type } from '@/theme';
 
@@ -67,8 +68,8 @@ export default function MapScreen() {
       <View style={[styles.root, styles.center, { paddingTop: insets.top }]}>
         <EmptyState
           icon="map-outline"
-          title="Mapa je zatiaľ prázdna"
-          message="Lumen si pri každom novom zápisku uloží miesto, kde vznikol. Akonáhle napíšeš prvý, objaví sa tu."
+          title={t.map.emptyTitle}
+          message={t.map.empty}
         />
       </View>
     );
@@ -98,6 +99,7 @@ export default function MapScreen() {
             coordinate={{ latitude: cluster.latitude, longitude: cluster.longitude }}
             onPress={() => focus(cluster)}
             tracksViewChanges={false}
+            accessibilityLabel={t.map.pinA11y(cluster.label, cluster.entries.length)}
             anchor={{ x: 0.5, y: 0.5 }}
           >
             <View style={[styles.pin, selected?.id === cluster.id && styles.pinActive]}>
@@ -115,14 +117,14 @@ export default function MapScreen() {
         <Glass style={styles.stat}>
           <Ionicons name="location" size={14} color={colors.accent} />
           <Text style={styles.statText}>
-            {clusters.length} miest · {located.length} zápiskov
+            {t.map.stat(clusters.length, located.length)}
           </Text>
         </Glass>
         <IconButton
           name="scan-outline"
           size={18}
           onPress={() => mapRef.current?.animateToRegion(initialRegion as Region, 400)}
-          accessibilityLabel="Zobraziť všetko"
+          accessibilityLabel={t.map.showAll}
         />
       </View>
 
@@ -144,10 +146,15 @@ export default function MapScreen() {
                 {selected.label}
               </Text>
               <Text style={styles.sheetSubtitle}>
-                {selected.entries.length} zápiskov · {selected.dayCount} dní
+                {t.map.placeSummary(selected.entries.length, selected.dayCount)}
               </Text>
             </View>
-            <Pressable onPress={() => setSelected(null)} hitSlop={10}>
+            <Pressable
+              onPress={() => setSelected(null)}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel={t.common.close}
+            >
               <Ionicons name="close" size={22} color={colors.textMuted} />
             </Pressable>
           </View>
@@ -211,7 +218,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.lg,
-    height: 38,
+    minHeight: 38,
   },
   statText: { ...type.caption, color: colors.text },
 

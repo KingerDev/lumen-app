@@ -1,4 +1,5 @@
 import { config } from '@/lib/config';
+import { lang, t } from '@/lib/i18n';
 
 /**
  * Thin HTTP client for the Lumen API.
@@ -65,7 +66,7 @@ function buildUrl(path: string, query?: RequestOptions['query']): string {
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   if (!config.apiUrl) {
-    throw new ApiError('Chýba EXPO_PUBLIC_API_URL — server nie je nastavený.', 0);
+    throw new ApiError(t.errors.noApiUrl, 0);
   }
 
   const controller = new AbortController();
@@ -80,6 +81,8 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       method: options.method ?? 'GET',
       headers: {
         Accept: 'application/json',
+        // Messages the app shows straight from the server come in its language.
+        'Accept-Language': lang,
         ...(options.body ? { 'Content-Type': 'application/json' } : {}),
         ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       },
@@ -88,7 +91,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     });
   } catch (err) {
     throw new ApiError(
-      controller.signal.aborted ? 'Server neodpovedal včas.' : 'Server je nedostupný.',
+      controller.signal.aborted ? t.errors.timeout : t.errors.unreachable,
       0
     );
   } finally {
@@ -104,12 +107,12 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   } catch {
     // A non-JSON body means a proxy or PHP fatal got in the way; the status
     // code is the only trustworthy thing left.
-    if (!response.ok) throw new ApiError(`Neočakávaná odpoveď (${response.status}).`, response.status);
+    if (!response.ok) throw new ApiError(t.errors.unexpected(response.status), response.status);
   }
 
   if (!response.ok) {
     throw new ApiError(
-      payload?.message ?? `Požiadavka zlyhala (${response.status}).`,
+      payload?.message ?? t.errors.requestFailed(response.status),
       response.status,
       payload?.errors
     );

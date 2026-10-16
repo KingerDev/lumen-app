@@ -11,15 +11,17 @@
     "backgroundColor": "#0B0B0E",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.martinbalaz.lumen",
+      "usesAppleSignIn": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Lumen si pri novom zápisku automaticky uloží miesto, kde si ho napísal, aby si ho neskôr našiel na mape.",
-        "NSPhotoLibraryUsageDescription": "Lumen potrebuje prístup k fotkám, aby si k zápiskom mohol priradiť obrázky.",
-        "NSCameraUsageDescription": "Lumen potrebuje prístup ku kamere, aby si mohol odfotiť moment priamo do zápisku.",
-        "NSFaceIDUsageDescription": "Odomkni Lumen pomocou Face ID namiesto PIN kódu.",
+        "NSLocationWhenInUseUsageDescription": "Lumen saves where you write each new entry so you can find it on the map. You can change or turn this off anytime.",
+        "NSPhotoLibraryUsageDescription": "Lumen adds the photos and videos you choose to your entry.",
+        "NSCameraUsageDescription": "Lumen uses the camera so you can take a photo straight into your entry.",
+        "NSFaceIDUsageDescription": "Unlock Lumen with Face ID instead of your passcode.",
         "UIBackgroundModes": [],
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleAllowMixedLocalizations": true
       }
     },
     "android": {
@@ -43,6 +45,7 @@
       "bundler": "metro"
     },
     "plugins": [
+      "./plugins/withSceneLifecycle",
       "expo-router",
       "expo-image",
       "expo-secure-store",
@@ -57,20 +60,22 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Lumen si pri novom zápisku automaticky uloží miesto, kde si ho napísal."
+          "locationWhenInUsePermission": "Lumen saves where you write each new entry so you can find it on the map. You can change or turn this off anytime."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Lumen potrebuje prístup k fotkám, aby si k zápiskom mohol priradiť obrázky.",
-          "cameraPermission": "Lumen potrebuje prístup ku kamere, aby si mohol odfotiť moment priamo do zápisku.",
+          "photosPermission": "Lumen adds the photos and videos you choose to your entry.",
+          "cameraPermission": "Lumen uses the camera so you can take a photo straight into your entry.",
           "microphonePermission": false
         }
       ],
       "@react-native-community/datetimepicker",
       "expo-video",
-      "expo-asset"
+      "expo-asset",
+      "expo-localization",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true
@@ -79,6 +84,10 @@
       "eas": {
         "projectId": "f9284bb5-9528-4af5-b82a-d047417ae24d"
       }
+    },
+    "locales": {
+      "en": "./locales/en.json",
+      "sk": "./locales/sk.json"
     }
   }
 }

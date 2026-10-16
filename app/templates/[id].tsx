@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/ui';
 import { nowISO } from '@/lib/date';
+import { t } from '@/lib/i18n';
 import { slugId, uid } from '@/lib/id';
 import { useJournal } from '@/store/journal';
 import { colors, radius, spacing, type } from '@/theme';
@@ -66,11 +67,11 @@ export default function TemplateEditorScreen() {
       .filter((field) => field.label);
 
     if (!cleanName) {
-      Alert.alert('Chýba názov', 'Pomenuj šablónu, aby si ju našiel pri písaní.');
+      Alert.alert(t.templateEditor.missingNameTitle, t.templateEditor.missingName);
       return;
     }
     if (!cleanFields.length) {
-      Alert.alert('Chýbajú otázky', 'Pridaj aspoň jednu otázku.');
+      Alert.alert(t.templateEditor.missingFieldsTitle, t.templateEditor.missingFields);
       return;
     }
 
@@ -90,10 +91,15 @@ export default function TemplateEditorScreen() {
   return (
     <View style={[styles.root, { paddingTop: insets.top + spacing.sm }]}>
       <View style={styles.header}>
-        <IconButton name="chevron-back" onPress={() => router.back()} accessibilityLabel="Späť" />
-        <Text style={styles.headerTitle}>{existing ? 'Upraviť šablónu' : 'Nová šablóna'}</Text>
-        <Pressable onPress={save} style={({ pressed }) => [styles.save, pressed && styles.pressed]}>
-          <Text style={styles.saveLabel}>Uložiť</Text>
+        <IconButton name="chevron-back" onPress={() => router.back()} accessibilityLabel={t.common.back} />
+        <Text style={styles.headerTitle}>{existing ? t.templateEditor.editTitle : t.templateEditor.newTitle}</Text>
+        <Pressable
+          onPress={save}
+          hitSlop={6}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.save, pressed && styles.pressed]}
+        >
+          <Text style={styles.saveLabel}>{t.common.save}</Text>
         </Pressable>
       </View>
 
@@ -107,30 +113,33 @@ export default function TemplateEditorScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.group}>
-          <Text style={styles.groupLabel}>Názov</Text>
+          <Text style={styles.groupLabel}>{t.templateEditor.name}</Text>
           <TextInput
             value={name}
             onChangeText={setName}
-            placeholder="napr. Daily Self"
+            placeholder={t.templateEditor.namePlaceholder}
             placeholderTextColor={colors.textFaint}
             style={styles.input}
           />
           <TextInput
             value={description}
             onChangeText={setDescription}
-            placeholder="Krátky popis (voliteľné)"
+            placeholder={t.templateEditor.descriptionPlaceholder}
             placeholderTextColor={colors.textFaint}
             style={styles.input}
           />
         </View>
 
         <View style={styles.group}>
-          <Text style={styles.groupLabel}>Ikona</Text>
+          <Text style={styles.groupLabel}>{t.templateEditor.icon}</Text>
           <View style={styles.iconRow}>
             {ICONS.map((candidate) => (
               <Pressable
                 key={candidate}
                 onPress={() => setIcon(candidate)}
+                accessibilityRole="button"
+                accessibilityLabel={t.templateEditor.icons[candidate]}
+                accessibilityState={{ selected: icon === candidate }}
                 style={[styles.iconOption, icon === candidate && styles.iconOptionActive]}
               >
                 <Ionicons
@@ -144,37 +153,50 @@ export default function TemplateEditorScreen() {
         </View>
 
         <View style={styles.group}>
-          <Text style={styles.groupLabel}>Otázky</Text>
+          <Text style={styles.groupLabel}>{t.templateEditor.questions}</Text>
           {fields.map((field, index) => (
             <View key={field.id} style={styles.fieldRow}>
               <View style={styles.reorder}>
-                <Pressable onPress={() => move(index, -1)} hitSlop={6} disabled={index === 0}>
+                <Pressable
+                  onPress={() => move(index, -1)}
+                  hitSlop={12}
+                  disabled={index === 0}
+                  accessibilityRole="button"
+                  accessibilityLabel={t.templateEditor.moveUp}
+                >
                   <Ionicons
                     name="chevron-up"
-                    size={15}
-                    color={index === 0 ? colors.textFaint : colors.textMuted}
+                    size={20}
+                    color={index === 0 ? colors.decorative : colors.textMuted}
                   />
                 </Pressable>
                 <Pressable
                   onPress={() => move(index, 1)}
-                  hitSlop={6}
+                  hitSlop={12}
                   disabled={index === fields.length - 1}
+                  accessibilityRole="button"
+                  accessibilityLabel={t.templateEditor.moveDown}
                 >
                   <Ionicons
                     name="chevron-down"
-                    size={15}
-                    color={index === fields.length - 1 ? colors.textFaint : colors.textMuted}
+                    size={20}
+                    color={index === fields.length - 1 ? colors.decorative : colors.textMuted}
                   />
                 </Pressable>
               </View>
               <TextInput
                 value={field.label}
                 onChangeText={(label) => updateField(field.id, label)}
-                placeholder={`Otázka ${index + 1}…`}
+                placeholder={t.templateEditor.questionPlaceholder(index + 1)}
                 placeholderTextColor={colors.textFaint}
                 style={[styles.input, styles.fieldInput]}
               />
-              <Pressable onPress={() => removeField(field.id)} hitSlop={8}>
+              <Pressable
+                onPress={() => removeField(field.id)}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel={t.templateEditor.removeQuestion}
+              >
                 <Ionicons name="close-circle" size={20} color={colors.textFaint} />
               </Pressable>
             </View>
@@ -182,7 +204,7 @@ export default function TemplateEditorScreen() {
 
           <Pressable onPress={addField} style={({ pressed }) => [styles.add, pressed && styles.pressed]}>
             <Ionicons name="add" size={17} color={colors.accent} />
-            <Text style={styles.addLabel}>Pridať otázku</Text>
+            <Text style={styles.addLabel}>{t.templateEditor.addQuestion}</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -207,7 +229,7 @@ const styles = StyleSheet.create({
   headerTitle: { ...type.bodyStrong, color: colors.text, flex: 1, textAlign: 'center' },
   save: {
     paddingHorizontal: spacing.lg,
-    height: 38,
+    minHeight: 38,
     borderRadius: radius.pill,
     backgroundColor: colors.accent,
     alignItems: 'center',

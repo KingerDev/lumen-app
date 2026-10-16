@@ -1,3 +1,4 @@
+import { lang, uses24h } from '@/lib/i18n';
 import type { ISODate } from '@/types';
 
 const MONTHS_SK = [
@@ -12,6 +13,14 @@ const MONTHS_SK_NOM = [
 
 const DAYS_SK = ['nedeľa', 'pondelok', 'utorok', 'streda', 'štvrtok', 'piatok', 'sobota'];
 const DAYS_SK_SHORT = ['Ne', 'Po', 'Ut', 'St', 'Št', 'Pi', 'So'];
+
+const MONTHS_EN = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+const DAYS_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const en = lang === 'en';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -31,32 +40,36 @@ export function monthKey(value: ISODate | Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
 }
 
-/** "15. augusta 2026" */
+/** "15. augusta 2026" / "August 15, 2026" */
 export function formatLongDate(value: ISODate | Date): string {
   const d = toDate(value);
+  if (en) return `${MONTHS_EN[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
   return `${d.getDate()}. ${MONTHS_SK[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 /** "August 2026" — gallery section headers. */
 export function formatMonth(value: ISODate | Date): string {
   const d = toDate(value);
-  return `${MONTHS_SK_NOM[d.getMonth()]} ${d.getFullYear()}`;
+  return `${(en ? MONTHS_EN : MONTHS_SK_NOM)[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-/** "piatok" */
+/** "piatok" / "Friday" */
 export function formatWeekday(value: ISODate | Date): string {
-  return DAYS_SK[toDate(value).getDay()];
+  return (en ? DAYS_EN : DAYS_SK)[toDate(value).getDay()];
 }
 
-/** "Pi" */
+/** "Pi" / "Fri" */
 export function formatWeekdayShort(value: ISODate | Date): string {
-  return DAYS_SK_SHORT[toDate(value).getDay()];
+  const day = toDate(value).getDay();
+  return en ? DAYS_EN[day].slice(0, 3) : DAYS_SK_SHORT[day];
 }
 
-/** "23:12" */
+/** "23:12", or "11:12 PM" where the phone uses a 12-hour clock. */
 export function formatTime(value: ISODate | Date): string {
   const d = toDate(value);
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  if (uses24h) return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const hours = d.getHours() % 12 || 12;
+  return `${hours}:${pad(d.getMinutes())} ${d.getHours() < 12 ? 'AM' : 'PM'}`;
 }
 
 /** "15. augusta 2026 · 23:12" */
@@ -71,11 +84,14 @@ export function formatRelativeDay(value: ISODate | Date): string {
   const yesterday = dayKey(new Date(Date.now() - 86_400_000));
   const key = dayKey(d);
 
-  if (key === today) return 'Dnes';
-  if (key === yesterday) return 'Včera';
+  if (key === today) return en ? 'Today' : 'Dnes';
+  if (key === yesterday) return en ? 'Yesterday' : 'Včera';
 
   const sameYear = d.getFullYear() === new Date().getFullYear();
-  const base = `${formatWeekday(d)}, ${d.getDate()}. ${MONTHS_SK[d.getMonth()]}`;
+  const base = en
+    ? `${formatWeekday(d)}, ${MONTHS_EN[d.getMonth()]} ${d.getDate()}`
+    : `${formatWeekday(d)}, ${d.getDate()}. ${MONTHS_SK[d.getMonth()]}`;
+  if (en) return sameYear ? base : `${base}, ${d.getFullYear()}`;
   return sameYear ? base : `${base} ${d.getFullYear()}`;
 }
 
@@ -115,7 +131,7 @@ const MONTHS_SK_SHORT = [
  */
 export function formatRailDate(value: ISODate | Date): { day: number; month: string } {
   const d = toDate(value);
-  const month = MONTHS_SK_SHORT[d.getMonth()];
+  const month = en ? MONTHS_EN[d.getMonth()].slice(0, 3) : MONTHS_SK_SHORT[d.getMonth()];
   const year = d.getFullYear();
   const currentYear = new Date().getFullYear();
 

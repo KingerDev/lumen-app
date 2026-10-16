@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButton, useModalTopInset } from '@/components/ui';
+import { t } from '@/lib/i18n';
 import { useJournal } from '@/store/journal';
 import { colors, radius, spacing, type } from '@/theme';
 
@@ -25,10 +26,12 @@ export default function TemplatePickerScreen() {
     <View style={[styles.root, { paddingTop: topInset }]}>
       <View style={styles.header}>
         <View style={styles.headerText}>
-          <Text style={styles.title}>Nový zápisok</Text>
-          <Text style={styles.subtitle}>Vyber šablónu, pod ktorou budeš písať</Text>
+          <Text style={styles.title} accessibilityRole="header">
+            {t.templatePicker.title}
+          </Text>
+          <Text style={styles.subtitle}>{t.templatePicker.subtitle}</Text>
         </View>
-        <IconButton name="close" onPress={() => router.back()} accessibilityLabel="Zavrieť" />
+        <IconButton name="close" onPress={() => router.back()} accessibilityLabel={t.common.close} />
       </View>
 
       <ScrollView
@@ -37,24 +40,26 @@ export default function TemplatePickerScreen() {
       >
         <Pressable
           onPress={() => start()}
+          accessibilityRole="button"
           style={({ pressed }) => [styles.option, styles.freeOption, pressed && styles.pressed]}
         >
           <View style={[styles.optionIcon, styles.freeIcon]}>
             <Ionicons name="create-outline" size={20} color={colors.accent} />
           </View>
           <View style={styles.optionBody}>
-            <Text style={styles.optionTitle}>Voľný zápis</Text>
-            <Text style={styles.optionSubtitle}>Čistá strana, bez otázok</Text>
+            <Text style={styles.optionTitle}>{t.templatePicker.free}</Text>
+            <Text style={styles.optionSubtitle}>{t.templatePicker.freeSubtitle}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
+          <Ionicons name="chevron-forward" size={18} color={colors.decorative} />
         </Pressable>
 
-        <Text style={styles.groupLabel}>Šablóny</Text>
+        <Text style={styles.groupLabel}>{t.templatePicker.templates}</Text>
 
         {templates.map((template) => (
           <Pressable
             key={template.id}
             onPress={() => start(template.id)}
+            accessibilityRole="button"
             style={({ pressed }) => [styles.option, pressed && styles.pressed]}
           >
             <View style={styles.optionIcon}>
@@ -67,10 +72,10 @@ export default function TemplatePickerScreen() {
             <View style={styles.optionBody}>
               <Text style={styles.optionTitle}>{template.name}</Text>
               <Text style={styles.optionSubtitle} numberOfLines={1}>
-                {template.description ?? `${template.fields.length} otázok`}
+                {template.description ?? t.templatePicker.questions(template.fields.length)}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
+            <Ionicons name="chevron-forward" size={18} color={colors.decorative} />
           </Pressable>
         ))}
 
@@ -82,7 +87,7 @@ export default function TemplatePickerScreen() {
           style={({ pressed }) => [styles.manage, pressed && styles.pressed]}
         >
           <Ionicons name="options-outline" size={16} color={colors.accent} />
-          <Text style={styles.manageLabel}>Spravovať šablóny</Text>
+          <Text style={styles.manageLabel}>{t.templatePicker.manage}</Text>
         </Pressable>
       </ScrollView>
     </View>

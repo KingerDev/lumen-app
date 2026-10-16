@@ -1,0 +1,7 @@
+{
+  "CFBundleDisplayName": "Lumen",
+  "NSLocationWhenInUseUsageDescription": "Lumen pri novom zápisku uloží miesto, kde ho píšeš, aby si ho našiel na mape. Miesto môžeš kedykoľvek zmeniť alebo vypnúť.",
+  "NSPhotoLibraryUsageDescription": "Lumen pridá vybrané fotky a videá k tvojmu zápisku.",
+  "NSCameraUsageDescription": "Lumen používa kameru, aby si mohol odfotiť moment priamo do zápisku.",
+  "NSFaceIDUsageDescription": "Odomkni Lumen pomocou Face ID namiesto PIN kódu."
+}

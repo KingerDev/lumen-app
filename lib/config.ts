@@ -33,3 +33,8 @@ export const config = {
     return Boolean(process.env.EXPO_PUBLIC_API_URL);
   },
 } as const;
+
+/** Public pages on the API host — linked from the App Store and the app. */
+export function legalUrl(page: 'privacy' | 'support', lang: string): string {
+  return `${config.apiUrl.replace(/\/$/, '')}/${page}?lang=${lang}`;
+}

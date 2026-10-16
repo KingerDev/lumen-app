@@ -3,6 +3,8 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
 
+import { t } from '@/lib/i18n';
+
 /**
  * PIN lock.
  *
@@ -11,8 +13,8 @@ import { create } from 'zustand';
  * reading the keychain does not hand over the code.
  */
 
-const HASH_KEY = 'lumen.pin.hash';
-const SALT_KEY = 'lumen.pin.salt';
+export const HASH_KEY = 'lumen.pin.hash';
+export const SALT_KEY = 'lumen.pin.salt';
 
 export const PIN_LENGTH = 4;
 
@@ -106,9 +108,9 @@ export const useLock = create<LockState>((set, get) => ({
 
   async authenticateBiometrics() {
     const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Odomkni Lumen',
-      fallbackLabel: 'Zadať PIN',
-      cancelLabel: 'Zrušiť',
+      promptMessage: t.pin.prompt,
+      fallbackLabel: t.pin.fallback,
+      cancelLabel: t.common.cancel,
     });
     return result.success;
   },

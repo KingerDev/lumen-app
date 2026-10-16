@@ -1,14 +1,16 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { usePreventRemove } from 'expo-router/react-navigation';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Dimensions,
   Keyboard,
   LayoutAnimation,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -21,9 +23,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Glass, IconButton, useModalTopInset } from '@/components/ui';
 import { formatLongDate, formatTime, toLocalISO } from '@/lib/date';
+import { localeTag, t } from '@/lib/i18n';
 import { captureCurrentLocation, formatLocation } from '@/lib/location';
 import { capturePhoto, MediaPickError, mediaSource, pickMedia } from '@/lib/media';
+import { computeStreak } from '@/lib/streak';
 import { renderSections } from '@/lib/templates';
+import { ensureThumbnail } from '@/lib/thumbnail';
+import { useCelebration } from '@/store/celebration';
 import { useEditor } from '@/store/editor';
 import { useJournal } from '@/store/journal';
 import { colors, radius, spacing, type } from '@/theme';
@@ -37,6 +43,7 @@ import { colors, radius, spacing, type } from '@/theme';
  */
 export default function EditEntryScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const topInset = useModalTopInset();
   const params = useLocalSearchParams<{ id?: string; templateId?: string }>();
@@ -61,6 +68,31 @@ export default function EditEntryScreen() {
   const [busy, setBusy] = useState(false);
 
   const keyboardInset = useKeyboardInset();
+
+  // Set right before a deliberate exit (save, confirmed discard): the draft is
+  // cleared in the same tick, but the guard below still sees the old render.
+  const leaving = useRef(false);
+
+  // The X button and the sheet's swipe-down both end here, so unsaved writing
+  // is never dropped without asking.
+  usePreventRemove(Boolean(draft?.dirty), ({ data }) => {
+    if (leaving.current) {
+      navigation.dispatch(data.action);
+      return;
+    }
+    Alert.alert(t.editor.discardTitle, t.editor.discardMessage, [
+      { text: t.editor.keepWriting, style: 'cancel' },
+      {
+        text: t.editor.discard,
+        style: 'destructive',
+        onPress: () => {
+          leaving.current = true;
+          clear();
+          navigation.dispatch(data.action);
+        },
+      },
+    ]);
+  });
 
   const isEditing = Boolean(params.id);
 
@@ -105,10 +137,7 @@ export default function EditEntryScreen() {
     draft.media.length > 0;
 
   const save = () => {
-    if (!hasContent) {
-      Alert.alert('Prázdny zápisok', 'Napíš aspoň niečo alebo pridaj fotku.');
-      return;
-    }
+    if (!hasContent) return;
 
     const text = draft.sections
       ? renderSections(draft.templateName, draft.sections)
@@ -125,31 +154,34 @@ export default function EditEntryScreen() {
       starred: draft.starred,
     };
 
+    const before = computeStreak(useJournal.getState().entries);
+
     if (draft.entryId) updateEntry(draft.entryId, payload);
     else createEntry(payload);
 
+    // A single day is not a run yet; the popup starts earning its place at two.
+    const after = computeStreak(useJournal.getState().entries);
+    if (after.current > before.current && after.current >= 2) {
+      const moment = {
+        from: before.current,
+        to: after.current,
+        record: before.longest >= 2 && after.current > before.longest,
+      };
+      // The editor is a native sheet that sits above everything React draws;
+      // wait for it to slide away so the popup is not animating underneath.
+      setTimeout(() => useCelebration.getState().celebrateStreak(moment), 450);
+    }
+
+    // Make the gallery tiles now, while nobody is waiting for them.
+    draft.media.forEach((media) => void ensureThumbnail(media));
+
+    leaving.current = true;
     clear();
     router.back();
   };
 
-  const close = () => {
-    if (!draft.dirty) {
-      clear();
-      router.back();
-      return;
-    }
-    Alert.alert('Zahodiť zápisok?', 'Zmeny sa neuložia.', [
-      { text: 'Pokračovať v písaní', style: 'cancel' },
-      {
-        text: 'Zahodiť',
-        style: 'destructive',
-        onPress: () => {
-          clear();
-          router.back();
-        },
-      },
-    ]);
-  };
+  // A dirty draft is caught by the usePreventRemove guard above.
+  const close = () => router.back();
 
   const attach = async (source: 'library' | 'camera') => {
     setBusy(true);
@@ -165,13 +197,10 @@ export default function EditEntryScreen() {
       // attach whatever did come through and say what was skipped.
       if (err instanceof MediaPickError) {
         addMedia(err.picked);
-        Alert.alert(
-          'Niektoré fotky sa nenačítali',
-          `${err.message} Ak sú uložené v iCloude, otvor ich najprv vo Fotkách, aby sa stiahli.`
-        );
+        Alert.alert(t.editor.someFailedTitle, t.editor.someFailed(err.failedCount));
       } else {
         console.warn('[lumen] attach failed', err);
-        Alert.alert('Nepodarilo sa pridať médiá', 'Skús to prosím znova.');
+        Alert.alert(t.editor.attachFailedTitle, t.editor.tryAgain);
       }
     } finally {
       setBusy(false);
@@ -184,10 +213,10 @@ export default function EditEntryScreen() {
     setLocating(false);
     if (location) patch({ location });
     else
-      Alert.alert(
-        'Polohu sa nepodarilo získať',
-        'Skontroluj, či má Lumen povolený prístup k polohe v nastaveniach telefónu.'
-      );
+      Alert.alert(t.editor.locationFailedTitle, t.editor.locationFailed, [
+        { text: t.common.cancel, style: 'cancel' },
+        { text: t.editor.openSettings, onPress: () => void Linking.openSettings() },
+      ]);
   };
 
   const onPickDate = (_: unknown, picked?: Date) => {
@@ -209,17 +238,25 @@ export default function EditEntryScreen() {
     <View style={[styles.root, { paddingBottom: keyboardInset }]}>
       <View style={styles.root}>
         <View style={[styles.header, { paddingTop: topInset }]}>
-          <IconButton name="close" onPress={close} accessibilityLabel="Zavrieť" />
+          <IconButton name="close" onPress={close} accessibilityLabel={t.common.close} />
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle} numberOfLines={1}>
-              {draft.templateName ?? (isEditing ? 'Upraviť zápisok' : 'Voľný zápis')}
+              {draft.templateName ?? (isEditing ? t.editor.editTitle : t.editor.freeTitle)}
             </Text>
           </View>
           <Pressable
             onPress={save}
-            style={({ pressed }) => [styles.saveButton, pressed && styles.pressed]}
+            disabled={!hasContent}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !hasContent }}
+            style={({ pressed }) => [
+              styles.saveButton,
+              !hasContent && styles.disabled,
+              pressed && styles.pressed,
+            ]}
           >
-            <Text style={styles.saveLabel}>Uložiť</Text>
+            <Text style={styles.saveLabel}>{t.common.save}</Text>
           </Pressable>
         </View>
 
@@ -236,17 +273,21 @@ export default function EditEntryScreen() {
           <View style={styles.metaCard}>
             <Pressable
               onPress={() => setPicker(picker === 'date' ? null : 'date')}
+              accessibilityRole="button"
+              accessibilityLabel={`${t.editor.date}: ${formatLongDate(draft.date)}`}
               style={({ pressed }) => [styles.metaRow, pressed && styles.pressed]}
             >
               <Ionicons name="calendar-outline" size={18} color={colors.accent} />
               <Text style={styles.metaLabel}>{formatLongDate(draft.date)}</Text>
-              <Ionicons name="chevron-down" size={15} color={colors.textFaint} />
+              <Ionicons name="chevron-down" size={15} color={colors.decorative} />
             </Pressable>
 
             <View style={styles.metaSeparator} />
 
             <Pressable
               onPress={() => setPicker(picker === 'time' ? null : 'time')}
+              accessibilityRole="button"
+              accessibilityLabel={`${t.editor.time}: ${formatTime(draft.date)}`}
               style={({ pressed }) => [styles.metaRow, styles.metaRowNarrow, pressed && styles.pressed]}
             >
               <Ionicons name="time-outline" size={18} color={colors.accent} />
@@ -261,45 +302,54 @@ export default function EditEntryScreen() {
                 mode={picker}
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                 themeVariant="dark"
-                locale="sk-SK"
+                locale={localeTag}
                 maximumDate={picker === 'date' ? new Date() : undefined}
                 onChange={onPickDate}
               />
               {Platform.OS === 'ios' ? (
                 <Pressable onPress={() => setPicker(null)} style={styles.pickerDone}>
-                  <Text style={styles.pickerDoneLabel}>Hotovo</Text>
+                  <Text style={styles.pickerDoneLabel}>{t.common.done}</Text>
                 </Pressable>
               ) : null}
             </View>
           ) : null}
 
           {/* Location — auto-filled, editable by tapping. */}
-          <Pressable
-            onPress={() => router.push('/entry/location-picker')}
-            style={({ pressed }) => [styles.locationRow, pressed && styles.pressed]}
-          >
-            <Ionicons
-              name={draft.location ? 'location' : 'location-outline'}
-              size={18}
-              color={draft.location ? colors.accent : colors.textFaint}
-            />
-            <View style={styles.locationBody}>
-              <Text style={styles.locationLabel} numberOfLines={1}>
-                {formatLocation(draft.location) ??
-                  (locating ? 'Zisťujem polohu…' : 'Pridať miesto')}
-              </Text>
-              {draft.location?.auto ? (
-                <Text style={styles.locationHint}>automaticky z GPS · ťukni pre úpravu</Text>
-              ) : null}
-            </View>
+          <View style={styles.locationRow}>
+            <Pressable
+              onPress={() => router.push('/entry/location-picker')}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.locationMain, pressed && styles.pressed]}
+            >
+              <Ionicons
+                name={draft.location ? 'location' : 'location-outline'}
+                size={18}
+                color={draft.location ? colors.accent : colors.textFaint}
+              />
+              <View style={styles.locationBody}>
+                <Text style={styles.locationLabel} numberOfLines={1}>
+                  {formatLocation(draft.location) ??
+                    (locating ? t.editor.locating : t.editor.addPlace)}
+                </Text>
+                {draft.location?.auto ? (
+                  <Text style={styles.locationHint}>{t.editor.autoPlace}</Text>
+                ) : null}
+              </View>
+            </Pressable>
             {locating ? (
-              <ActivityIndicator size="small" color={colors.textFaint} />
+              <ActivityIndicator size="small" color={colors.textFaint} style={styles.refresh} />
             ) : (
-              <Pressable onPress={refreshLocation} hitSlop={10}>
-                <Ionicons name="refresh" size={16} color={colors.textFaint} />
+              <Pressable
+                onPress={refreshLocation}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={t.editor.refreshLocation}
+                style={({ pressed }) => [styles.refresh, pressed && styles.pressed]}
+              >
+                <Ionicons name="refresh" size={18} color={colors.textMuted} />
               </Pressable>
             )}
-          </Pressable>
+          </View>
 
           {/* Body — template prompts, or one open field. */}
           {draft.sections ? (
@@ -310,7 +360,7 @@ export default function EditEntryScreen() {
                   value={section.value}
                   onChangeText={(value) => setSection(section.fieldId, value)}
                   multiline
-                  placeholder="…"
+                  placeholder={t.editor.answerPlaceholder}
                   placeholderTextColor={colors.textFaint}
                   style={styles.fieldInput}
                 />
@@ -322,7 +372,7 @@ export default function EditEntryScreen() {
               onChangeText={(text) => patch({ text })}
               multiline
               autoFocus={!isEditing}
-              placeholder="Ako bol dnešný deň?"
+              placeholder={t.editor.placeholder}
               placeholderTextColor={colors.textFaint}
               style={[styles.fieldInput, styles.freeInput]}
             />
@@ -343,7 +393,10 @@ export default function EditEntryScreen() {
                     onPress={() => removeMedia(media.id)}
                     style={styles.mediaRemove}
                     hitSlop={6}
-                    accessibilityLabel="Odobrať fotku"
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      media.kind === 'video' ? t.editor.removeVideo : t.editor.removeMedia
+                    }
                   >
                     <Ionicons name="close" size={13} color="#fff" />
                   </Pressable>
@@ -369,21 +422,25 @@ export default function EditEntryScreen() {
           <Pressable
             onPress={() => attach('library')}
             disabled={busy}
+            accessibilityRole="button"
             style={({ pressed }) => [styles.tool, pressed && styles.pressed]}
           >
             <Ionicons name="images-outline" size={20} color={colors.text} />
-            <Text style={styles.toolLabel}>Fotky</Text>
+            <Text style={styles.toolLabel}>{t.editor.photos}</Text>
           </Pressable>
           <Pressable
             onPress={() => attach('camera')}
             disabled={busy}
+            accessibilityRole="button"
             style={({ pressed }) => [styles.tool, pressed && styles.pressed]}
           >
             <Ionicons name="camera-outline" size={20} color={colors.text} />
-            <Text style={styles.toolLabel}>Odfotiť</Text>
+            <Text style={styles.toolLabel}>{t.editor.camera}</Text>
           </Pressable>
           <Pressable
             onPress={() => patch({ starred: !draft.starred })}
+            accessibilityRole="button"
+            accessibilityState={{ selected: draft.starred }}
             style={({ pressed }) => [styles.tool, pressed && styles.pressed]}
           >
             <Ionicons
@@ -391,7 +448,7 @@ export default function EditEntryScreen() {
               size={20}
               color={draft.starred ? colors.accent : colors.text}
             />
-            <Text style={styles.toolLabel}>Obľúbené</Text>
+            <Text style={styles.toolLabel}>{t.editor.favorite}</Text>
           </Pressable>
           {busy ? <ActivityIndicator size="small" color={colors.textMuted} /> : null}
         </Glass>
@@ -442,6 +499,7 @@ function useKeyboardInset() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   pressed: { opacity: 0.65 },
+  disabled: { opacity: 0.4 },
 
   header: {
     flexDirection: 'row',
@@ -456,7 +514,7 @@ const styles = StyleSheet.create({
   headerTitle: { ...type.bodyStrong, color: colors.text },
   saveButton: {
     paddingHorizontal: spacing.lg,
-    height: 38,
+    minHeight: 38,
     borderRadius: radius.pill,
     backgroundColor: colors.accent,
     alignItems: 'center',
@@ -497,17 +555,23 @@ const styles = StyleSheet.create({
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    paddingHorizontal: spacing.lg,
+  },
+  locationMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingLeft: spacing.lg,
     paddingVertical: spacing.md,
   },
+  refresh: { width: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   locationBody: { flex: 1, gap: 1 },
   locationLabel: { ...type.small, color: colors.text },
-  locationHint: { ...type.caption, color: colors.textFaint, fontSize: 11 },
+  locationHint: { ...type.caption, color: colors.textFaint },
 
   field: { gap: spacing.xs, marginTop: spacing.sm },
   fieldLabel: { ...type.caption, color: colors.accent, fontWeight: '600' },
@@ -566,5 +630,5 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   tool: { alignItems: 'center', gap: 3 },
-  toolLabel: { ...type.caption, color: colors.textFaint, fontSize: 10 },
+  toolLabel: { ...type.caption, color: colors.textMuted, fontSize: 11 },
 });

@@ -1,7 +1,9 @@
+import * as AppleAuthentication from 'expo-apple-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
 
 import { ApiError, request, setAuthToken } from '@/lib/api';
+import { t } from '@/lib/i18n';
 
 /**
  * Session state.
@@ -11,13 +13,21 @@ import { ApiError, request, setAuthToken } from '@/lib/api';
  * same protection as the PIN.
  */
 
-const TOKEN_KEY = 'lumen.api.token';
-const USER_KEY = 'lumen.api.user';
+export const TOKEN_KEY = 'lumen.api.token';
+export const USER_KEY = 'lumen.api.user';
 
 export interface AuthUser {
   id: number;
   name: string;
-  email: string;
+  /** null for a Sign in with Apple account that shared no e-mail */
+  email: string | null;
+  /** signed in with Apple, so deletion also revokes the link at Apple */
+  apple?: boolean;
+}
+
+interface Session {
+  token: string;
+  user: AuthUser;
 }
 
 interface AuthState {
@@ -31,7 +41,13 @@ interface AuthState {
 
   restore: () => Promise<void>;
   login: (email: string, password: string) => Promise<boolean>;
+  /** Shows Apple's sheet; false when it failed or the user cancelled it. */
+  loginWithApple: () => Promise<boolean>;
   logout: () => Promise<void>;
+  /** Deletes the account and all its data on the server — irreversible. Throws on failure. */
+  deleteAccount: () => Promise<void>;
+  /** stores a fresh session from either sign-in path */
+  start: (session: Session) => Promise<void>;
   /** called when the API rejects the token — drops the session without a round trip */
   invalidate: () => Promise<void>;
 }
@@ -66,16 +82,11 @@ export const useAuth = create<AuthState>((set, get) => ({
     set({ busy: true, error: null });
 
     try {
-      const result = await request<{ token: string; user: AuthUser }>('login', {
+      const session = await request<Session>('login', {
         method: 'POST',
         body: { email: email.trim(), password, device: 'mobil' },
       });
-
-      await SecureStore.setItemAsync(TOKEN_KEY, result.token);
-      await SecureStore.setItemAsync(USER_KEY, JSON.stringify(result.user));
-
-      setAuthToken(result.token);
-      set({ token: result.token, user: result.user, busy: false, error: null });
+      await get().start(session);
 
       return true;
     } catch (err) {
@@ -83,12 +94,75 @@ export const useAuth = create<AuthState>((set, get) => ({
         err instanceof ApiError
           ? // Laravel returns the useful text per field, not in `message`.
             (err.errors?.email?.[0] ?? err.message)
-          : 'Prihlásenie zlyhalo.';
+          : t.login.failed;
 
       set({ busy: false, error: message });
 
       return false;
     }
+  },
+
+  async loginWithApple() {
+    set({ error: null });
+
+    let credential: AppleAuthentication.AppleAuthenticationCredential;
+    try {
+      credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+    } catch (err: any) {
+      // Closing Apple's sheet is a choice, not an error.
+      if (err?.code !== 'ERR_REQUEST_CANCELED') set({ error: t.login.appleFailed });
+      return false;
+    }
+
+    if (!credential.identityToken) {
+      set({ error: t.login.appleFailed });
+      return false;
+    }
+
+    set({ busy: true });
+
+    try {
+      // Apple hands out the name only on the very first sign-in, to the app —
+      // the server can't ask for it later.
+      const name = [credential.fullName?.givenName, credential.fullName?.familyName]
+        .filter(Boolean)
+        .join(' ');
+
+      const session = await request<Session>('auth/apple', {
+        method: 'POST',
+        body: {
+          identityToken: credential.identityToken,
+          authorizationCode: credential.authorizationCode,
+          name: name || undefined,
+          device: 'mobil',
+        },
+      });
+      await get().start(session);
+
+      return true;
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? (err.errors?.identityToken?.[0] ?? err.message)
+          : t.login.appleFailed;
+
+      set({ busy: false, error: message });
+
+      return false;
+    }
+  },
+
+  async start(session: Session) {
+    await SecureStore.setItemAsync(TOKEN_KEY, session.token);
+    await SecureStore.setItemAsync(USER_KEY, JSON.stringify(session.user));
+
+    setAuthToken(session.token);
+    set({ token: session.token, user: session.user, busy: false, error: null });
   },
 
   async logout() {
@@ -100,6 +174,11 @@ export const useAuth = create<AuthState>((set, get) => ({
       // ignored on purpose
     }
 
+    await get().invalidate();
+  },
+
+  async deleteAccount() {
+    await request('user', { method: 'DELETE' });
     await get().invalidate();
   },
 

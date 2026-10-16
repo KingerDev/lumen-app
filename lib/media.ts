@@ -1,5 +1,6 @@
 import { Directory, File, Paths, UploadType } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
+import { Platform } from 'react-native';
 
 import { uid } from '@/lib/id';
 import { nowISO } from '@/lib/date';
@@ -57,8 +58,12 @@ async function persistAsset(asset: ImagePicker.ImagePickerAsset): Promise<Media>
  *    on the device — otherwise picking an older photo fails the same way.
  */
 export async function pickMedia(limit = 10): Promise<Media[]> {
-  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (!permission.granted) return [];
+  // iOS hands the picked files over through the system picker, which needs no
+  // library access — asking for it anyway would be a needless permission prompt.
+  if (Platform.OS !== 'ios') {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return [];
+  }
 
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['images', 'videos'],
@@ -99,9 +104,7 @@ export class MediaPickError extends Error {
     readonly picked: Media[],
     readonly failedCount: number
   ) {
-    super(
-      `${failedCount} ${failedCount === 1 ? 'fotku sa nepodarilo' : 'fotiek sa nepodarilo'} načítať.`
-    );
+    super(`${failedCount} media item(s) could not be read.`);
     this.name = 'MediaPickError';
   }
 }
@@ -132,11 +135,14 @@ export function deleteMediaFile(media: Media): void {
  *
  * Media created on this device has a local file. Media that arrived through
  * sync has only a signed R2 URL, which expires — expo-image caches it, and the
- * next sync refreshes it. Returns null when neither is available yet.
+ * next sync refreshes it. The cache is keyed by the media id rather than the
+ * URL: a refreshed signature is still the same file, and keying by URL meant
+ * downloading it all over again after every sync.
+ * Returns null when neither is available yet.
  */
-export function mediaSource(media: Media): { uri: string } | null {
+export function mediaSource(media: Media): { uri: string; cacheKey?: string } | null {
   if (media.uri) return { uri: media.uri };
-  if (media.remoteUrl) return { uri: media.remoteUrl };
+  if (media.remoteUrl) return { uri: media.remoteUrl, cacheKey: `lumen-media-${media.id}` };
   return null;
 }
 

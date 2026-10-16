@@ -40,7 +40,17 @@ export function previewText(text: string, sections?: EntrySection[]): string {
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean);
-  return lines.join(' ').replace(/\s+/g, ' ');
+  // The first line already stands above the preview as its title.
+  const body = freeTextTitle(lines) ? lines.slice(1) : lines;
+  return body.join(' ').replace(/\s+/g, ' ');
+}
+
+/**
+ * A short first line reads as the entry's title — but only with more text
+ * under it; a one-line entry is all body, or the row would show it twice.
+ */
+function freeTextTitle(lines: string[]): string | null {
+  return lines.length > 1 && lines[0].length <= 60 ? lines[0] : null;
 }
 
 /** Title line for a row: the template name, or the first line of free text. */
@@ -51,6 +61,10 @@ export function previewTitle(
 ): string | null {
   if (templateName) return templateName;
   if (sections?.length) return null;
-  const first = text.split('\n').find((l) => l.trim());
-  return first && first.trim().length <= 60 ? first.trim() : null;
+  return freeTextTitle(
+    text
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+  );
 }

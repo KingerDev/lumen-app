@@ -6,6 +6,7 @@ import MapView, { PROVIDER_DEFAULT, PROVIDER_GOOGLE, type Region } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Glass, IconButton, useModalTopInset } from '@/components/ui';
+import { t } from '@/lib/i18n';
 import { captureCurrentLocation, describePoint } from '@/lib/location';
 import { useEditor } from '@/store/editor';
 import { colors, mapDarkStyle, radius, spacing, type } from '@/theme';
@@ -109,15 +110,15 @@ export default function LocationPickerScreen() {
       </View>
 
       <View style={[styles.header, { paddingTop: topInset }]}>
-        <IconButton name="close" onPress={() => router.back()} accessibilityLabel="Zavrieť" />
+        <IconButton name="close" onPress={() => router.back()} accessibilityLabel={t.common.close} />
         <Glass style={styles.headerTitleWrap}>
-          <Text style={styles.headerTitle}>Miesto zápisku</Text>
+          <Text style={styles.headerTitle}>{t.locationPicker.title}</Text>
         </Glass>
         <IconButton
           name="navigate"
           onPress={useCurrent}
           tint={colors.accent}
-          accessibilityLabel="Použiť moju polohu"
+          accessibilityLabel={t.locationPicker.useMine}
         />
       </View>
 
@@ -127,7 +128,7 @@ export default function LocationPickerScreen() {
           <TextInput
             value={label}
             onChangeText={setLabel}
-            placeholder="Názov miesta"
+            placeholder={t.locationPicker.placeName}
             placeholderTextColor={colors.textFaint}
             style={styles.input}
           />
@@ -139,7 +140,7 @@ export default function LocationPickerScreen() {
           <TextInput
             value={locality}
             onChangeText={setLocality}
-            placeholder="Mesto / obec"
+            placeholder={t.locationPicker.locality}
             placeholderTextColor={colors.textFaint}
             style={styles.input}
           />
@@ -151,9 +152,9 @@ export default function LocationPickerScreen() {
 
         <View style={styles.actions}>
           <Pressable onPress={clearLocation} style={({ pressed }) => [styles.clear, pressed && { opacity: 0.6 }]}>
-            <Text style={styles.clearLabel}>Bez miesta</Text>
+            <Text style={styles.clearLabel}>{t.locationPicker.none}</Text>
           </Pressable>
-          <Button label="Potvrdiť" icon="checkmark" onPress={confirm} />
+          <Button label={t.locationPicker.confirm} icon="checkmark" onPress={confirm} />
         </View>
       </Glass>
     </View>
@@ -213,7 +214,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceRaised,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    height: 46,
+    minHeight: 46,
   },
   input: { flex: 1, ...type.small, color: colors.text, paddingVertical: 0 },
   coords: { ...type.caption, color: colors.textFaint, textAlign: 'center', marginTop: 2 },

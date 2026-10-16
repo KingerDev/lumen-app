@@ -18,7 +18,10 @@ export const colors = {
 
   text: '#F2F2F5',
   textMuted: '#9A9AA8',
-  textFaint: '#5E5E6B',
+  /** small secondary text — 4.6:1 even on surfaceRaised */
+  textFaint: '#85858F',
+  /** non-text only: chevrons, separators */
+  decorative: '#5E5E6B',
 
   /** warm lamp-light amber — the "lumen" */
   accent: '#E8B54D',
@@ -26,7 +29,7 @@ export const colors = {
   accentSoft: 'rgba(232, 181, 77, 0.14)',
   accentBorder: 'rgba(232, 181, 77, 0.35)',
 
-  danger: '#E5484D',
+  danger: '#EE5D62',
   dangerSoft: 'rgba(229, 72, 77, 0.14)',
   success: '#4CC38A',
 

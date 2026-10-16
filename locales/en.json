@@ -1,0 +1,7 @@
+{
+  "CFBundleDisplayName": "Lumen",
+  "NSLocationWhenInUseUsageDescription": "Lumen saves where you write each new entry so you can find it on the map. You can change or turn this off anytime.",
+  "NSPhotoLibraryUsageDescription": "Lumen adds the photos and videos you choose to your entry.",
+  "NSCameraUsageDescription": "Lumen uses the camera so you can take a photo straight into your entry.",
+  "NSFaceIDUsageDescription": "Unlock Lumen with Face ID instead of your passcode."
+}

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { plural } from '@/lib/plural';
+import { t } from '@/lib/i18n';
 import { colors, radius, spacing, type } from '@/theme';
 
 /**
@@ -18,21 +18,15 @@ export function StreakBadge({ days, writtenToday }: { days: number; writtenToday
   if (days <= 0) return null;
 
   const tint = writtenToday ? colors.accent : colors.textMuted;
-  const unit = plural(days, 'deň', 'dni', 'dní');
-
   return (
     <View
       accessibilityRole="text"
-      accessibilityLabel={
-        writtenToday
-          ? `Séria ${days} ${unit} v rade`
-          : `Séria ${days} ${unit} v rade, dnes si ešte nepísal`
-      }
+      accessibilityLabel={t.streak.badgeA11y(days, writtenToday)}
       style={[styles.badge, writtenToday ? styles.live : styles.idle]}
     >
       <Ionicons name={writtenToday ? 'flame' : 'flame-outline'} size={14} color={tint} />
       <Text style={[styles.label, { color: tint }]}>
-        {days} {unit}
+        {t.streak.badge(days)}
       </Text>
     </View>
   );
@@ -43,7 +37,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    height: 30,
+    minHeight: 30,
     paddingHorizontal: spacing.md,
     borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,

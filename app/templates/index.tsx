@@ -4,6 +4,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState, IconButton } from '@/components/ui';
+import { t } from '@/lib/i18n';
 import { useJournal } from '@/store/journal';
 import { colors, radius, spacing, type } from '@/theme';
 
@@ -21,13 +22,11 @@ export default function TemplatesScreen() {
   const confirmDelete = (id: string, name: string) => {
     const used = usageOf(id);
     Alert.alert(
-      `Zmazať „${name}"?`,
-      used
-        ? `Šablónu používa ${used} zápiskov. Tie zostanú nedotknuté — zmaže sa len šablóna.`
-        : 'Šablóna sa odstráni zo zoznamu pri písaní.',
+      t.templates.deleteTitle(name),
+      used ? t.templates.deleteUsed(used) : t.templates.deleteUnused,
       [
-        { text: 'Zrušiť', style: 'cancel' },
-        { text: 'Zmazať', style: 'destructive', onPress: () => deleteTemplate(id) },
+        { text: t.common.cancel, style: 'cancel' },
+        { text: t.common.delete, style: 'destructive', onPress: () => deleteTemplate(id) },
       ]
     );
   };
@@ -35,14 +34,16 @@ export default function TemplatesScreen() {
   return (
     <View style={[styles.root, { paddingTop: insets.top + spacing.sm }]}>
       <View style={styles.header}>
-        <IconButton name="chevron-back" onPress={() => router.back()} accessibilityLabel="Späť" />
-        <Text style={styles.title}>Šablóny</Text>
+        <IconButton name="chevron-back" onPress={() => router.back()} accessibilityLabel={t.common.back} />
+        <Text style={styles.title} accessibilityRole="header">
+          {t.templates.title}
+        </Text>
         <IconButton
           name="add"
           tint={colors.accentText}
           background={colors.accent}
           onPress={() => router.push({ pathname: '/templates/[id]', params: { id: 'new' } })}
-          accessibilityLabel="Nová šablóna"
+          accessibilityLabel={t.templates.new}
         />
       </View>
 
@@ -57,8 +58,8 @@ export default function TemplatesScreen() {
         {templates.length === 0 ? (
           <EmptyState
             icon="document-text-outline"
-            title="Žiadne šablóny"
-            message="Šablóna je sada otázok, ktoré ti Lumen predloží pri písaní zápisku."
+            title={t.templates.emptyTitle}
+            message={t.templates.empty}
           />
         ) : null}
 
@@ -71,6 +72,13 @@ export default function TemplatesScreen() {
                 router.push({ pathname: '/templates/[id]', params: { id: template.id } })
               }
               onLongPress={() => confirmDelete(template.id, template.name)}
+              accessibilityRole="button"
+              accessibilityActions={[{ name: 'delete', label: t.common.delete }]}
+              onAccessibilityAction={(event) => {
+                if (event.nativeEvent.actionName === 'delete') {
+                  confirmDelete(template.id, template.name);
+                }
+              }}
               style={({ pressed }) => [styles.card, pressed && styles.pressed]}
             >
               <View style={styles.cardIcon}>
@@ -83,16 +91,16 @@ export default function TemplatesScreen() {
               <View style={styles.cardBody}>
                 <Text style={styles.cardTitle}>{template.name}</Text>
                 <Text style={styles.cardMeta}>
-                  {template.fields.length} otázok
-                  {used ? ` · použitá v ${used} zápiskoch` : ''}
+                  {t.templatePicker.questions(template.fields.length)}
+                  {used ? t.templates.usedIn(used) : ''}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
+              <Ionicons name="chevron-forward" size={18} color={colors.decorative} />
             </Pressable>
           );
         })}
 
-        <Text style={styles.hint}>Podržaním šablóny ju zmažeš.</Text>
+        <Text style={styles.hint}>{t.templates.hint}</Text>
       </ScrollView>
     </View>
   );

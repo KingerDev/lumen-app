@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
+import { t } from '@/lib/i18n';
 import { colors, type } from '@/theme';
 
 /**
@@ -21,7 +22,7 @@ export default function TabsLayout() {
       minimizeBehavior="onScrollDown"
     >
       <NativeTabs.Trigger name="index" contentStyle={{ backgroundColor: colors.bg }}>
-        <NativeTabs.Trigger.Label>Denník</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{t.tabs.journal}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           sf={{ default: 'book', selected: 'book.fill' }}
           src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="book" />}
@@ -29,7 +30,7 @@ export default function TabsLayout() {
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="gallery" contentStyle={{ backgroundColor: colors.bg }}>
-        <NativeTabs.Trigger.Label>Galéria</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{t.tabs.gallery}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           sf={{ default: 'photo.on.rectangle', selected: 'photo.fill.on.rectangle.fill' }}
           src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="images" />}
@@ -37,7 +38,7 @@ export default function TabsLayout() {
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="map" contentStyle={{ backgroundColor: colors.bg }}>
-        <NativeTabs.Trigger.Label>Mapa</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{t.tabs.map}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           sf={{ default: 'map', selected: 'map.fill' }}
           src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="map" />}
@@ -45,7 +46,7 @@ export default function TabsLayout() {
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="settings" contentStyle={{ backgroundColor: colors.bg }}>
-        <NativeTabs.Trigger.Label>Nastavenia</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{t.tabs.settings}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           sf={{ default: 'gearshape', selected: 'gearshape.fill' }}
           src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="settings" />}

@@ -1,11 +1,12 @@
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PinDots, PinPad } from '@/components/PinPad';
 import { IconButton, useModalTopInset } from '@/components/ui';
+import { t } from '@/lib/i18n';
 import { useJournal } from '@/store/journal';
 import { PIN_LENGTH, useLock } from '@/store/lock';
 import { colors, spacing, type } from '@/theme';
@@ -32,6 +33,7 @@ export default function PinSetupScreen() {
     if (stage === 'enter') {
       setFirst(next);
       setStage('confirm');
+      AccessibilityInfo.announceForAccessibility(t.pin.repeatHint);
       setValue('');
       return;
     }
@@ -44,6 +46,7 @@ export default function PinSetupScreen() {
       });
     } else {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      AccessibilityInfo.announceForAccessibility(t.pin.mismatch);
       setError(true);
       setTimeout(() => {
         setError(false);
@@ -57,19 +60,19 @@ export default function PinSetupScreen() {
   return (
     <View style={[styles.root, { paddingTop: topInset, paddingBottom: insets.bottom }]}>
       <View style={styles.header}>
-        <IconButton name="close" onPress={() => router.back()} accessibilityLabel="Zavrieť" />
+        <IconButton name="close" onPress={() => router.back()} accessibilityLabel={t.common.close} />
       </View>
 
       <View style={styles.head}>
         <Text style={styles.title}>
-          {stage === 'enter' ? 'Zvoľ si PIN' : 'Zopakuj PIN'}
+          {stage === 'enter' ? t.pin.choose : t.pin.repeat}
         </Text>
         <Text style={styles.hint}>
           {error
-            ? 'PIN kódy sa nezhodujú, skús to znova'
+            ? t.pin.mismatch
             : stage === 'enter'
-              ? `${PIN_LENGTH} číslice, ktorými odomkneš denník`
-              : 'Zadaj ten istý kód ešte raz'}
+              ? t.pin.chooseHint(PIN_LENGTH)
+              : t.pin.repeatHint}
         </Text>
         <View style={styles.dots}>
           <PinDots filled={value.length} error={error} />
